@@ -1,0 +1,141 @@
+/* ==========================================================================
+   时隙 TimeGap · M0 基础外壳样式
+   设计令牌见 README「3.2 主题系统」，此处为浅色主题（默认）基线。
+   ========================================================================== */
+
+:root {
+  /* 玻璃层 */
+  --glass-fill: rgba(173, 216, 230, 0.3);
+  --glass-stroke: rgba(255, 255, 255, 0.65);
+  --glass-highlight: rgba(255, 255, 255, 0.7);
+
+  /* 文字 */
+  --text-primary: #1e3a5f;
+  --text-secondary: #5b7290;
+
+  /* 形状与阴影 */
+  --radius-window: 20px;
+  --shadow-soft: 0 8px 32px rgba(31, 84, 140, 0.1);
+  --blur-strength: 20px;
+
+  font-family: "Microsoft YaHei UI", "PingFang SC", Inter, system-ui,
+    -apple-system, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 窗口本体全透明：圆角与毛玻璃由卡片负责 */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+}
+
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+
+.app {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* 毛玻璃卡片：铺满窗口，同时作为拖拽区域 */
+.glass-card {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-window);
+  border: 1px solid var(--glass-stroke);
+  background:
+    radial-gradient(
+      120% 120% at 15% 0%,
+      rgba(255, 255, 255, 0.5) 0%,
+      rgba(255, 255, 255, 0) 55%
+    ),
+    var(--glass-fill);
+  -webkit-backdrop-filter: blur(var(--blur-strength)) saturate(140%);
+  backdrop-filter: blur(var(--blur-strength)) saturate(140%);
+  box-shadow:
+    var(--shadow-soft),
+    inset 0 1px 0 var(--glass-highlight);
+  cursor: grab;
+}
+
+.glass-card:active {
+  cursor: grabbing;
+}
+
+/* 占位标题：品牌名 + 英文标 */
+.app-title {
+  margin: 0;
+  padding-left: 0.24em;
+  font-size: 32px;
+  font-weight: 400;
+  letter-spacing: 0.24em;
+  color: var(--text-primary);
+  pointer-events: none;
+}
+
+.app-subtitle {
+  margin: 10px 0 0;
+  padding-left: 0.42em;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+/* 关闭按钮：悬浮于卡片右上角，不参与拖拽 */
+.close-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid rgba(30, 58, 95, 0.08);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--text-primary);
+}
+
+.close-btn:active {
+  transform: scale(0.94);
+}
+
+.close-btn:focus-visible {
+  outline: 2px solid rgba(79, 168, 224, 0.6);
+  outline-offset: 2px;
+}
+
+.close-btn svg {
+  width: 12px;
+  height: 12px;
+}

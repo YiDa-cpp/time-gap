@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>时隙</title>
+    <script type="module" src="/src/main.ts" defer></script>
+  </head>
+
+  <body>
+    <div class="app">
+      <div class="glass-card" data-tauri-drag-region>
+        <h1 class="app-title" data-tauri-drag-region>时隙</h1>
+        <p class="app-subtitle" data-tauri-drag-region>TimeGap</p>
+      </div>
+
+      <button
+        id="close-btn"
+        class="close-btn"
+        type="button"
+        aria-label="关闭窗口"
+        title="关闭"
+      >
+        <svg
+          viewBox="0 0 12 12"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <path
+            d="M2 2L10 10M10 2L2 10"
+            stroke="currentColor"
+            stroke-width="1.4"
+            stroke-linecap="round"
+          />
+        </svg>
+      </button>
+    </div>
+  </body>
+</html>
