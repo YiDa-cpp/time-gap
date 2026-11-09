@@ -1,4 +1,4 @@
-/* ==========================================================================
+﻿/* ==========================================================================
    时隙 TimeGap · 实色玻璃板 + 翻页时钟
    ========================================================================== */
 
@@ -1224,8 +1224,10 @@ kbd {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  box-sizing: border-box;
   min-width: 180px;
   max-height: 196px;
+  overflow-x: hidden;
   overflow-y: auto;
   padding: 6px;
   border: 1px solid var(--glass-stroke);
@@ -1241,10 +1243,10 @@ kbd {
 .subject-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
+  box-sizing: border-box;
   width: 100%;
-  padding: 7px 10px;
+  padding: 7px 10px 7px 6px;
   border: none;
   border-radius: 9px;
   background: transparent;
@@ -1254,6 +1256,7 @@ kbd {
   letter-spacing: 0.04em;
   text-align: left;
   cursor: pointer;
+  overflow: hidden;
 }
 
 .subject-label {
@@ -1268,16 +1271,16 @@ kbd {
   display: grid;
   flex: none;
   place-items: center;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   padding: 0;
   border: none;
   border-radius: 50%;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1;
-  opacity: 0;
+  opacity: 0.3;
   cursor: pointer;
   transition:
     opacity 0.15s ease,
@@ -1287,7 +1290,7 @@ kbd {
 
 .subject-item:hover .subject-remove,
 .subject-item.is-active .subject-remove {
-  opacity: 0.65;
+  opacity: 0.85;
 }
 
 .subject-remove:hover {

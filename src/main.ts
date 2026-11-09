@@ -1,4 +1,4 @@
-﻿import { getCurrentWindow, currentMonitor, cursorPosition } from "@tauri-apps/api/window";
+import { getCurrentWindow, currentMonitor, cursorPosition } from "@tauri-apps/api/window";
 import { LogicalSize, PhysicalPosition, PhysicalSize } from "@tauri-apps/api/dpi";
 
 /* ============================================================
@@ -1258,7 +1258,7 @@ function paintSubjectMenu(): void {
         deleteHistory(value);
       });
 
-      item.append(label, remove);
+      item.append(remove, label);
       item.addEventListener("mousedown", (event) => {
         event.preventDefault();
         chooseSubject(value);
