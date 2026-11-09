@@ -1200,15 +1200,27 @@ function filterHistory(query: string): string[] {
 function positionSubjectMenu(): void {
   if (!subjectInput || !subjectMenu) return;
 
+  const host = subjectMenu.offsetParent as HTMLElement | null;
   const card = document.querySelector<HTMLElement>(".glass-card");
-  if (!card) return;
+  const hostRect = (host ?? card)?.getBoundingClientRect();
+  if (!hostRect) return;
 
   const inputRect = subjectInput.getBoundingClientRect();
-  const cardRect = card.getBoundingClientRect();
 
-  subjectMenu.style.left = `${inputRect.left - cardRect.left}px`;
-  subjectMenu.style.top = `${inputRect.bottom - cardRect.top + 6}px`;
-  subjectMenu.style.width = `${inputRect.width}px`;
+  subjectMenu.style.left = `${Math.round(inputRect.left - hostRect.left)}px`;
+  subjectMenu.style.top = `${Math.round(inputRect.bottom - hostRect.top + 6)}px`;
+  subjectMenu.style.width = `${Math.round(inputRect.width)}px`;
+}
+
+function deleteHistory(value: string): void {
+  const next = readHistory().filter((item) => item !== value);
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+  } catch {
+    // 忽略
+  }
+  paintSubjectMenu();
+  subjectInput?.focus();
 }
 
 function paintSubjectMenu(): void {
@@ -1220,15 +1232,33 @@ function paintSubjectMenu(): void {
   if (items.length === 0) {
     const empty = document.createElement("div");
     empty.className = "subject-empty";
-    empty.textContent = "还没有历史科目";
+    empty.textContent = subjectInput.value.trim() ? "没有匹配的历史科目" : "还没有历史科目";
     subjectMenu.appendChild(empty);
   } else {
     items.forEach((value, index) => {
-      const item = document.createElement("button");
-      item.type = "button";
+      const item = document.createElement("div");
       item.className = index === subjectActiveIndex ? "subject-item is-active" : "subject-item";
       item.setAttribute("role", "option");
-      item.textContent = value;
+      item.setAttribute("tabindex", "-1");
+      item.dataset.value = value;
+
+      const label = document.createElement("span");
+      label.className = "subject-label";
+      label.textContent = value;
+
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "subject-remove";
+      remove.setAttribute("aria-label", `删除历史「${value}」`);
+      remove.title = "从历史中删除";
+      remove.textContent = "×";
+      remove.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        deleteHistory(value);
+      });
+
+      item.append(label, remove);
       item.addEventListener("mousedown", (event) => {
         event.preventDefault();
         chooseSubject(value);
@@ -1238,8 +1268,8 @@ function paintSubjectMenu(): void {
   }
 
   subjectActiveIndex = Math.min(subjectActiveIndex, items.length - 1);
-  positionSubjectMenu();
   subjectMenu.hidden = false;
+  positionSubjectMenu();
   subjectInput.setAttribute("aria-expanded", "true");
 }
 

@@ -1256,6 +1256,46 @@ kbd {
   cursor: pointer;
 }
 
+.subject-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.subject-remove {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0;
+  cursor: pointer;
+  transition:
+    opacity 0.15s ease,
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.subject-item:hover .subject-remove,
+.subject-item.is-active .subject-remove {
+  opacity: 0.65;
+}
+
+.subject-remove:hover {
+  background: rgba(217, 83, 79, 0.16);
+  color: #d9534f;
+  opacity: 1;
+}
+
 .subject-item:hover,
 .subject-item.is-active {
   background: var(--btn-bg-hover);
