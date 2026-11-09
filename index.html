@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN" data-mode="light" data-theme="light">
+<html lang="zh-CN" data-mode="light" data-theme="light" data-phase="idle">
   <head>
     <meta charset="UTF-8" />
     <link rel="stylesheet" href="/src/styles.css" />
@@ -25,12 +25,7 @@
               aria-label="切换主题"
               title="切换主题：浅色 / 深色 / 跟随系统"
             >
-              <svg
-                class="icon icon-sun"
-                viewBox="0 0 16 16"
-                fill="none"
-                aria-hidden="true"
-              >
+              <svg class="icon icon-sun" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <circle cx="8" cy="8" r="3.1" stroke="currentColor" stroke-width="1.2" />
                 <path
                   d="M8 1.2v1.6M8 13.2v1.6M1.2 8h1.6M13.2 8h1.6M3.2 3.2l1.1 1.1M11.7 11.7l1.1 1.1M12.8 3.2l-1.1 1.1M4.3 11.7l-1.1 1.1"
@@ -39,12 +34,7 @@
                   stroke-linecap="round"
                 />
               </svg>
-              <svg
-                class="icon icon-moon"
-                viewBox="0 0 16 16"
-                fill="none"
-                aria-hidden="true"
-              >
+              <svg class="icon icon-moon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <path
                   d="M13.2 9.6A5.6 5.6 0 0 1 6.4 2.8a5.6 5.6 0 1 0 6.8 6.8Z"
                   stroke="currentColor"
@@ -52,24 +42,13 @@
                   stroke-linejoin="round"
                 />
               </svg>
-              <svg
-                class="icon icon-auto"
-                viewBox="0 0 16 16"
-                fill="none"
-                aria-hidden="true"
-              >
+              <svg class="icon icon-auto" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <circle cx="8" cy="8" r="5.6" stroke="currentColor" stroke-width="1.2" />
                 <path d="M8 2.4a5.6 5.6 0 0 1 0 11.2Z" fill="currentColor" opacity="0.85" />
               </svg>
             </button>
 
-            <button
-              id="close-btn"
-              class="icon-btn"
-              type="button"
-              aria-label="关闭窗口"
-              title="关闭"
-            >
+            <button id="close-btn" class="icon-btn" type="button" aria-label="关闭窗口" title="关闭">
               <svg viewBox="0 0 12 12" fill="none" aria-hidden="true">
                 <path
                   d="M2 2L10 10M10 2L2 10"
@@ -83,7 +62,7 @@
         </header>
 
         <main class="stage">
-          <div class="clock" id="clock" role="timer" aria-label="计时器 00:00:00">
+          <div class="clock" id="clock" role="timer" aria-label="当前时间">
             <div class="digit-card"><span data-digit="0">0</span></div>
             <div class="digit-card"><span data-digit="1">0</span></div>
 
@@ -98,16 +77,28 @@
             <div class="digit-card"><span data-digit="5">0</span></div>
           </div>
 
-          <p class="subject" id="subject">正在学什么？</p>
+          <input
+            id="subject"
+            class="subject"
+            type="text"
+            maxlength="24"
+            placeholder="正在学什么？"
+            autocomplete="off"
+            spellcheck="false"
+            aria-label="当前科目"
+          />
 
-          <button class="primary" type="button" disabled>
-            开始专注
-          </button>
+          <button id="primary-btn" class="primary" type="button">开始专注</button>
 
-          <p class="hint">
-            按 <kbd>Space</kbd> 开始 · 计时逻辑将在 M1 接入
-          </p>
+          <p class="hint">按 <kbd>Space</kbd> 开始 / 暂停</p>
         </main>
+
+        <footer class="footer">
+          <span id="countdown" class="countdown" role="timer" aria-label="倒计时">25:00</span>
+          <div id="progress" class="progress" aria-hidden="true">
+            <div id="progress-fill" class="progress-fill"></div>
+          </div>
+        </footer>
       </div>
     </div>
   </body>

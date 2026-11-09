@@ -322,14 +322,46 @@ body {
     opacity 0.3s ease;
 }
 
-/* ---------- 科目标签 ---------- */
+/* ---------- 科目标签（可输入） ---------- */
 .subject {
-  margin: 0;
+  pointer-events: auto;
+  width: 320px;
+  padding: 4px 2px 5px;
+  border: none;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  font-family: inherit;
   font-size: 14px;
   letter-spacing: 0.12em;
+  text-align: center;
   color: var(--text-secondary);
-  opacity: 0.85;
-  transition: color 0.3s ease;
+  caret-color: var(--accent);
+  outline: none;
+  transition:
+    color 0.25s ease,
+    border-color 0.25s ease;
+}
+
+.subject::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.65;
+}
+
+.subject:hover {
+  border-bottom-color: rgba(79, 168, 224, 0.25);
+}
+
+.subject:focus {
+  color: var(--text-primary);
+  border-bottom-color: rgba(79, 168, 224, 0.55);
+}
+
+:root[data-theme="dark"] .subject:hover {
+  border-bottom-color: rgba(94, 200, 255, 0.25);
+}
+
+:root[data-theme="dark"] .subject:focus {
+  border-bottom-color: rgba(94, 200, 255, 0.55);
 }
 
 /* ---------- 主按钮 ---------- */
@@ -363,6 +395,84 @@ body {
 .primary:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+/* 归零反馈：按钮呼吸式闪烁 */
+.primary.flash {
+  animation: btn-flash 0.9s ease-in-out 2;
+}
+
+@keyframes btn-flash {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(79, 168, 224, 0);
+    background: var(--btn-bg);
+  }
+  40% {
+    box-shadow:
+      0 0 0 6px rgba(79, 168, 224, 0.16),
+      0 0 26px rgba(79, 168, 224, 0.45);
+    background: var(--btn-bg-hover);
+  }
+}
+
+/* ---------- 底部：倒计时 + 极细进度条 ---------- */
+.footer {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.countdown {
+  font-size: 18px;
+  font-weight: 300;
+  letter-spacing: 0.1em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  transition:
+    color 0.3s ease,
+    opacity 0.3s ease;
+}
+
+:root[data-phase="finished"] .countdown {
+  color: var(--accent);
+}
+
+.progress {
+  width: 100%;
+  height: 3px;
+  border-radius: 99px;
+  background: rgba(30, 58, 95, 0.07);
+  overflow: hidden;
+  opacity: 0;
+  transition:
+    opacity 0.35s ease,
+    background-color 0.3s ease;
+}
+
+.progress.is-visible {
+  opacity: 1;
+}
+
+.progress-fill {
+  height: 100%;
+  width: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, rgba(79, 168, 224, 0.5), var(--accent));
+  box-shadow: 0 0 10px rgba(79, 168, 224, 0.35);
+  transition: width 0.12s linear;
+}
+
+:root[data-theme="dark"] .progress {
+  background: rgba(94, 200, 255, 0.1);
+}
+
+:root[data-theme="dark"] .progress-fill {
+  background: linear-gradient(90deg, rgba(94, 200, 255, 0.45), var(--accent));
+  box-shadow: 0 0 12px rgba(94, 200, 255, 0.45);
 }
 
 /* ---------- 提示 ---------- */
