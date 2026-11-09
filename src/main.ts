@@ -192,14 +192,18 @@ function startWorldClock(): void {
 }
 
 /* ============================================================
-   倒计时：默认 25:00，可在待机时自定义；可开始 / 暂停 / 结束
+   番茄钟：专注 → 5 分钟休息 → 准备下一轮
    ============================================================ */
 
 const DEFAULT_FOCUS_MINUTES = 25;
 const MIN_FOCUS_MINUTES = 1;
 const MAX_FOCUS_MINUTES = 180;
+const BREAK_MS = 5 * 60 * 1000;
+const DAILY_GOAL = 4;
 const TICK_MS = 100;
 const DURATION_KEY = "timegap:focus-minutes";
+const MUTE_KEY = "timegap:muted";
+const STARS_KEY = "timegap:stars";
 
 function readStoredMinutes(): number {
   try {
@@ -213,7 +217,7 @@ function readStoredMinutes(): number {
   return DEFAULT_FOCUS_MINUTES;
 }
 
-type Phase = "idle" | "running" | "paused" | "finished";
+type Phase = "idle" | "running" | "paused" | "break" | "ready";
 
 let phase: Phase = "idle";
 let focusMs = readStoredMinutes() * 60 * 1000;
@@ -226,13 +230,113 @@ const resetButton = document.querySelector<HTMLButtonElement>("#reset-btn");
 const countdownEl = document.querySelector<HTMLButtonElement>("#countdown");
 const progressEl = document.getElementById("progress");
 const progressFillEl = document.getElementById("progress-fill");
+const statusEl = document.getElementById("status");
+const starsEl = document.getElementById("stars");
+const rippleHost = document.getElementById("ripple");
+
+/* ---------- 今日目标星星 ---------- */
+
+function todayKey(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+}
+
+function readStars(): number {
+  try {
+    const raw = localStorage.getItem(STARS_KEY);
+    if (!raw) return 0;
+    const parsed = JSON.parse(raw) as { date?: string; count?: number };
+    if (parsed.date !== todayKey() || typeof parsed.count !== "number") return 0;
+    return Math.max(0, Math.min(DAILY_GOAL, parsed.count));
+  } catch {
+    return 0;
+  }
+}
+
+let stars = readStars();
+
+function renderStars(): void {
+  if (!starsEl) return;
+  starsEl.replaceChildren();
+  for (let index = 0; index < DAILY_GOAL; index += 1) {
+    const star = document.createElement("span");
+    star.className = index < stars ? "star is-lit" : "star";
+    star.textContent = "★";
+    starsEl.appendChild(star);
+  }
+  starsEl.setAttribute("aria-label", `今日目标 ${stars}/${DAILY_GOAL}`);
+}
+
+function addStar(): void {
+  stars = Math.min(DAILY_GOAL, stars + 1);
+  try {
+    localStorage.setItem(STARS_KEY, JSON.stringify({ date: todayKey(), count: stars }));
+  } catch {
+    // 忽略写入失败
+  }
+  renderStars();
+}
+
+/* ---------- 提示音（Web Audio 合成） ---------- */
+
+let audioCtx: AudioContext | null = null;
+let muted = readMuted();
+
+function readMuted(): boolean {
+  try {
+    return localStorage.getItem(MUTE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function playDing(kind: "focus" | "break" = "focus"): void {
+  if (muted) return;
+
+  try {
+    audioCtx ??= new AudioContext();
+    if (audioCtx.state === "suspended") void audioCtx.resume();
+
+    const ctx = audioCtx;
+    const now = ctx.currentTime;
+    const base = kind === "focus" ? 880 : 660;
+
+    [1, 1.5, 2].forEach((ratio, index) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = base * ratio;
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.linearRampToValueAtTime(0.16 / (index + 1), now + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.1);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 1.15);
+    });
+  } catch {
+    // 音频不可用时静默失败
+  }
+}
+
+/* ---------- 完成水波纹 ---------- */
+
+function showRipple(): void {
+  if (!rippleHost) return;
+  const ring = document.createElement("span");
+  ring.className = "ripple-ring";
+  rippleHost.appendChild(ring);
+  window.setTimeout(() => ring.remove(), 700);
+}
+
+/* ---------- 渲染 ---------- */
+
+let lastPhase: Phase | null = null;
 
 function formatCountdown(ms: number): string {
   const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
   return `${pad2(Math.floor(totalSeconds / 60))}:${pad2(totalSeconds % 60)}`;
 }
-
-let lastPhase: Phase | null = null;
 
 function renderCountdown(): void {
   const text = formatCountdown(remainingMs);
@@ -242,14 +346,15 @@ function renderCountdown(): void {
       countdownEl.textContent = text;
       countdownEl.setAttribute(
         "aria-label",
-        `倒计时 ${text}${phase === "idle" ? "，点击设置专注时长" : ""}`,
+        `倒计时 ${text}${phase === "idle" || phase === "ready" ? "，点击设置专注时长" : ""}`,
       );
     }
-    countdownEl.disabled = phase !== "idle" || layout === "compact";
+    countdownEl.disabled = (phase !== "idle" && phase !== "ready") || layout === "compact";
   }
 
   if (progressFillEl) {
-    const ratio = Math.max(0, Math.min(1, remainingMs / focusMs));
+    const total = phase === "break" ? BREAK_MS : focusMs;
+    const ratio = Math.max(0, Math.min(1, remainingMs / total));
     progressFillEl.style.width = `${(ratio * 100).toFixed(2)}%`;
   }
 
@@ -257,11 +362,19 @@ function renderCountdown(): void {
   if (lastPhase !== phase) {
     lastPhase = phase;
 
-    progressEl?.classList.toggle("is-visible", phase === "running" || phase === "paused");
+    progressEl?.classList.toggle("is-visible", phase === "running" || phase === "paused" || phase === "break");
 
     if (primaryButton) {
       primaryButton.textContent =
-        phase === "running" ? "暂停" : phase === "paused" ? "继续" : "开始专注";
+        phase === "running"
+          ? "暂停"
+          : phase === "paused"
+            ? "继续"
+            : phase === "break"
+              ? "跳过休息"
+              : phase === "ready"
+                ? "开始下一轮"
+                : "开始专注";
       primaryButton.setAttribute("aria-pressed", String(phase === "running"));
     }
 
@@ -269,9 +382,21 @@ function renderCountdown(): void {
       resetButton.disabled = phase === "idle";
     }
 
+    if (statusEl) {
+      statusEl.textContent =
+        phase === "break"
+          ? "休息中 · 放松一下眼睛"
+          : phase === "ready"
+            ? "准备下一轮"
+            : "";
+      statusEl.classList.toggle("is-visible", phase === "break" || phase === "ready");
+    }
+
     document.documentElement.dataset.phase = phase;
   }
 }
+
+/* ---------- 计时驱动 ---------- */
 
 function stopTicker(): void {
   if (ticker !== null) {
@@ -284,7 +409,11 @@ function handleTick(): void {
   remainingMs = Math.max(0, deadline - performance.now());
 
   if (remainingMs <= 0) {
-    finishFocus();
+    if (phase === "break") {
+      finishBreak();
+    } else {
+      finishFocus();
+    }
     return;
   }
 
@@ -299,20 +428,54 @@ function startTicker(ms: number): void {
   handleTick();
 }
 
+/* ---------- 状态流转 ---------- */
+
+function startFocus(): void {
+  phase = "running";
+  primaryButton?.classList.remove("flash");
+  closeDurationPopover();
+  ensureAudio();
+  startTicker(focusMs);
+}
+
 function finishFocus(): void {
   stopTicker();
-  phase = "finished";
-  remainingMs = 0;
+  phase = "break";
+  remainingMs = BREAK_MS;
   renderCountdown();
+
+  addStar();
+  showRipple();
+  playDing("focus");
 
   if (primaryButton) {
     primaryButton.classList.remove("flash");
     void primaryButton.offsetWidth;
     primaryButton.classList.add("flash");
   }
+
+  startTicker(BREAK_MS);
+}
+
+function finishBreak(): void {
+  stopTicker();
+  phase = "ready";
+  remainingMs = focusMs;
+  renderCountdown();
+  playDing("break");
+}
+
+function skipBreak(): void {
+  if (phase !== "break") return;
+  finishBreak();
 }
 
 function toggleFocus(): void {
+  if (phase === "break") {
+    skipBreak();
+    return;
+  }
+
   if (phase === "running") {
     remainingMs = Math.max(0, deadline - performance.now());
     stopTicker();
@@ -321,11 +484,13 @@ function toggleFocus(): void {
     return;
   }
 
-  const nextMs = phase === "paused" ? remainingMs : focusMs;
-  primaryButton?.classList.remove("flash");
-  closeDurationPopover();
-  phase = "running";
-  startTicker(nextMs);
+  if (phase === "paused") {
+    phase = "running";
+    startTicker(remainingMs);
+    return;
+  }
+
+  startFocus();
 }
 
 function resetFocus(): void {
@@ -342,7 +507,9 @@ const durationPop = document.getElementById("duration-pop");
 const durationInput = document.querySelector<HTMLInputElement>("#duration-input");
 
 function openDurationPopover(): void {
-  if (phase !== "idle" || layout !== "normal" || !durationPop || !durationInput) return;
+  if ((phase !== "idle" && phase !== "ready") || layout !== "normal" || !durationPop || !durationInput) {
+    return;
+  }
 
   durationInput.value = String(Math.round(focusMs / 60000));
   durationPop.hidden = false;
@@ -378,6 +545,139 @@ function applyDuration(): void {
   closeDurationPopover();
 }
 
+/* ============================================================
+   四时段学习建议：按「日期 + 时段」确定性选取，同一天保持稳定
+   ============================================================ */
+
+const TIP_LIBRARY: Record<"morning" | "noon" | "afternoon" | "evening", string[]> = {
+  morning: [
+    "起床后 1–2 小时是记忆的黄金窗口，先攻最难的那科。",
+    "开始前先写下一句话：这 25 分钟我要解决什么。",
+    "把手机放到另一个房间，比调成静音有效十倍。",
+    "用 5 分钟回顾昨天的笔记，比重新读一遍更牢。",
+    "早晨别急着刷消息，先完成一个番茄再打开社交软件。",
+    "困难任务放在上午，意志力像电池，早满晚空。",
+    "先做 2 分钟起步动作：打开书、写下标题，惯性会接管。",
+    "喝口水、拉开窗帘，光照会提升警觉度。",
+    "今天只挑三个重点，其余都是加分项。",
+    "用「教别人」的心态读这一章，理解会立刻变深。",
+    "把大目标拆成能在 25 分钟内闭环的小块。",
+    "开始前先做一次 30 秒深呼吸，让注意力落地。",
+  ],
+  noon: [
+    "午饭后容易犯困，别硬扛，出门走 10 分钟比咖啡管用。",
+    "中午适合做机械性任务：整理笔记、背单词、刷题。",
+    "饭后 20 分钟内不要立刻高强度用脑，先消化。",
+    "午睡控制在 20 分钟内，超过会进入深睡反而更累。",
+    "把下午要做的三件事写在纸上，下午就不用再想。",
+    "中午做一次「检索练习」：合上书复述上午学的。",
+    "少食多餐，血糖平稳时专注力更稳。",
+    "午间可以用 5 分钟整理桌面，环境整洁降低认知负荷。",
+    "别在中午做重大决定，判断力在低谷。",
+    "给下午设一个最小目标：只要开始 5 分钟就算成功。",
+  ],
+  afternoon: [
+    "下午 2–4 点是身体的自然低谷，用短番茄（15 分钟）过渡。",
+    "犯困时站起来学，走动比坐着更能维持清醒。",
+    "把最难的理解题放在 3 点后，那是第二个小高峰。",
+    "每 50 分钟看一次 20 英尺外的东西 20 秒，护眼也护专注。",
+    "用番茄钟时把手机放到看不见的地方，视觉线索最勾人。",
+    "遇到卡壳先写下问题，跳过去，回头再攻，避免陷进去。",
+    "把「我要学完」改成「我要做完这三道题」，目标要可验证。",
+    "下午适合输出：写小结、画思维导图、给别人讲一遍。",
+    "学习前先关掉所有通知，中断一次平均要 23 分钟才能回神。",
+    "给自己设「结束时间」而不是「学习时长」，效率会更高。",
+    "换个座位或换个房间，环境变化能重启注意力。",
+    "困的时候用冷水洗脸，比再喝一杯咖啡更立竿见影。",
+  ],
+  evening: [
+    "晚上适合复习而不是新学，睡眠会帮你巩固白天内容。",
+    "睡前 1 小时调暗灯光，蓝光会推迟褪黑素分泌。",
+    "把明天要做的第一件事写下来，能显著降低入睡焦虑。",
+    "用「间隔重复」回顾三天前的内容，记忆最牢。",
+    "晚上做 10 分钟「自由回忆」：合上书，写下今天学了什么。",
+    "别用熬夜补偿白天的低效，睡眠不足会抹掉记忆。",
+    "把手机充电放在床外，早晨的第一小时会完全不同。",
+    "晚上适合整理错题，把错误分类比重做更有效。",
+    "睡前读纸质书比刷短视频更容易入睡。",
+    "给今天留一句复盘：哪一步做对了，明天保留它。",
+  ],
+};
+
+const tipEl = document.getElementById("tip");
+let currentTipKey = "";
+
+function slotOf(hour: number): keyof typeof TIP_LIBRARY {
+  if (hour >= 6 && hour < 11) return "morning";
+  if (hour >= 11 && hour < 13) return "noon";
+  if (hour >= 13 && hour < 18) return "afternoon";
+  return "evening";
+}
+
+function hashString(value: string): number {
+  let hash = 5381;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = ((hash << 5) + hash + value.charCodeAt(index)) >>> 0;
+  }
+  return hash;
+}
+
+function refreshTip(): void {
+  if (!tipEl) return;
+
+  const now = new Date();
+  const slot = slotOf(now.getHours());
+  const key = `${todayKey()}-${slot}`;
+  if (key === currentTipKey) return;
+
+  currentTipKey = key;
+  const pool = TIP_LIBRARY[slot];
+  tipEl.textContent = pool[hashString(key) % pool.length] ?? "";
+}
+
+function setupTips(): void {
+  refreshTip();
+  window.setInterval(refreshTip, 30_000);
+}
+
+/* ============================================================
+   静音开关（提示音）
+   ============================================================ */
+
+function ensureAudio(): void {
+  if (muted) return;
+  try {
+    audioCtx ??= new AudioContext();
+    if (audioCtx.state === "suspended") void audioCtx.resume();
+  } catch {
+    // 忽略
+  }
+}
+
+function setupMute(): void {
+  const button = document.querySelector<HTMLButtonElement>("#mute-btn");
+
+  const paint = (): void => {
+    document.documentElement.dataset.muted = String(muted);
+    if (!button) return;
+    button.setAttribute("aria-pressed", String(muted));
+    button.setAttribute("aria-label", muted ? "取消静音" : "静音");
+    button.title = muted ? "提示音：关" : "提示音：开";
+  };
+
+  paint();
+
+  button?.addEventListener("click", () => {
+    muted = !muted;
+    try {
+      localStorage.setItem(MUTE_KEY, muted ? "1" : "0");
+    } catch {
+      // 忽略
+    }
+    paint();
+    if (!muted) playDing("focus");
+  });
+}
 /* ============================================================
    置顶开关（默认不置顶，由用户决定）
    ============================================================ */
@@ -760,6 +1060,45 @@ function setupDockHover(): void {
    ============================================================ */
 
 const SUBJECT_KEY = "timegap:subject";
+const HISTORY_KEY = "timegap:subject-history";
+
+function readHistory(): string[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item): item is string => typeof item === "string").slice(0, 8);
+  } catch {
+    return [];
+  }
+}
+
+function renderHistory(): void {
+  const list = document.getElementById("subject-history");
+  if (!list) return;
+  list.replaceChildren();
+  readHistory().forEach((value) => {
+    const option = document.createElement("option");
+    option.value = value;
+    list.appendChild(option);
+  });
+}
+
+function rememberSubject(value: string): void {
+  const trimmed = value.trim();
+  if (!trimmed) return;
+
+  const history = readHistory().filter((item) => item !== trimmed);
+  history.unshift(trimmed);
+
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 8)));
+  } catch {
+    // 忽略写入失败
+  }
+
+  renderHistory();
+}
 
 function setupSubject(): void {
   const input = document.querySelector<HTMLInputElement>("#subject");
@@ -772,6 +1111,8 @@ function setupSubject(): void {
     // 忽略
   }
 
+  renderHistory();
+
   input.addEventListener("input", () => {
     try {
       localStorage.setItem(SUBJECT_KEY, input.value);
@@ -780,8 +1121,13 @@ function setupSubject(): void {
     }
   });
 
+  input.addEventListener("change", () => rememberSubject(input.value));
+
   input.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") input.blur();
+    if (event.key === "Enter") {
+      rememberSubject(input.value);
+      input.blur();
+    }
   });
 }
 
@@ -890,11 +1236,14 @@ function setupButtons(): void {
 
 window.addEventListener("DOMContentLoaded", () => {
   setupTheme();
+  setupMute();
   setupSubject();
   setupKeyboard();
   setupButtons();
   setupDockHover();
+  setupTips();
   startWorldClock();
+  renderStars();
   renderCountdown();
 
   void applyPinned(false);

@@ -126,6 +126,44 @@
             </button>
 
             <button
+              id="mute-btn"
+              class="icon-btn mute-btn"
+              type="button"
+              aria-label="静音"
+              aria-pressed="false"
+              title="提示音：开"
+            >
+              <svg class="icon icon-sound" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path
+                  d="M2.5 6.2h2.3L8 3.4v9.2L4.8 9.8H2.5z"
+                  stroke="currentColor"
+                  stroke-width="1.2"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M10.6 5.6a3.4 3.4 0 0 1 0 4.8M12.4 4a5.8 5.8 0 0 1 0 8"
+                  stroke="currentColor"
+                  stroke-width="1.2"
+                  stroke-linecap="round"
+                />
+              </svg>
+              <svg class="icon icon-mute" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path
+                  d="M2.5 6.2h2.3L8 3.4v9.2L4.8 9.8H2.5z"
+                  stroke="currentColor"
+                  stroke-width="1.2"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M10.8 6.2l3.6 3.6M14.4 6.2l-3.6 3.6"
+                  stroke="currentColor"
+                  stroke-width="1.2"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+
+            <button
               id="theme-btn"
               class="icon-btn"
               type="button"
@@ -225,8 +263,10 @@
             placeholder="正在学什么？"
             autocomplete="off"
             spellcheck="false"
+            list="subject-history"
             aria-label="当前科目"
           />
+          <datalist id="subject-history"></datalist>
 
           <div class="actions">
             <button id="primary-btn" class="primary" type="button">开始专注</button>
@@ -237,6 +277,8 @@
         </main>
 
         <footer class="footer">
+          <p class="status" id="status" aria-live="polite"></p>
+          <p class="tip" id="tip"></p>
           <button
             id="countdown"
             class="countdown"
@@ -246,10 +288,14 @@
           >
             25:00
           </button>
+          <div class="stars" id="stars" aria-label="今日目标"></div>
           <div id="progress" class="progress" aria-hidden="true">
             <div id="progress-fill" class="progress-fill"></div>
           </div>
         </footer>
+
+        <div class="ripple-host" id="ripple" aria-hidden="true"></div>
+        <div class="breath" aria-hidden="true"></div>
 
         <div id="duration-pop" class="duration-pop" hidden>
           <span class="duration-label">专注时长（分钟）</span>

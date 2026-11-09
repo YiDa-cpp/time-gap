@@ -1,4 +1,4 @@
-﻿/* ==========================================================================
+/* ==========================================================================
    时隙 TimeGap · 实色玻璃板 + 翻页时钟
    ========================================================================== */
 
@@ -812,7 +812,7 @@ kbd {
   cursor: default;
 }
 
-:root[data-phase="finished"] .countdown {
+:root[data-phase="ready"] .countdown {
   color: var(--accent);
 }
 
@@ -1047,6 +1047,173 @@ kbd {
 
 :root[data-layout="compact"] .glass-card:hover .expand-btn {
   opacity: 1;
+}
+
+/* ============================================================
+   番茄循环 / 呼吸灯 / 水波纹 / 星星 / 建议 / 静音
+   ============================================================ */
+
+.glass-card {
+  isolation: isolate;
+}
+
+.breath {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    120% 85% at 50% 40%,
+    rgba(79, 168, 224, 0.22) 0%,
+    rgba(79, 168, 224, 0) 70%
+  );
+  transition: opacity 0.8s ease;
+}
+
+:root[data-phase="running"] .breath {
+  opacity: 1;
+  animation: breathe 6s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.03);
+  }
+}
+
+.topbar,
+.stage,
+.footer {
+  position: relative;
+  z-index: 1;
+}
+
+.ripple-host {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  width: 46vmin;
+  height: 46vmin;
+  transform: translate(-50%, -50%);
+  z-index: 4;
+  pointer-events: none;
+}
+
+.ripple-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  opacity: 0.5;
+  animation: ripple-out 0.6s ease-out forwards;
+}
+
+@keyframes ripple-out {
+  0% {
+    transform: scale(0.3);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.15);
+    opacity: 0;
+  }
+}
+
+.status {
+  display: none;
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+}
+
+.status.is-visible {
+  display: block;
+}
+
+.tip {
+  margin: 0;
+  max-width: 92%;
+  font-size: 11.5px;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  opacity: 0.62;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.3s ease;
+}
+
+.stars {
+  display: flex;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.star {
+  color: rgba(30, 58, 95, 0.16);
+  transition:
+    color 0.3s ease,
+    text-shadow 0.3s ease,
+    transform 0.3s ease;
+}
+
+.star.is-lit {
+  color: #f2b93d;
+  text-shadow: 0 0 10px rgba(242, 185, 61, 0.55);
+  transform: scale(1.08);
+}
+
+:root[data-theme="dark"] .star {
+  color: rgba(168, 216, 255, 0.14);
+}
+
+:root[data-theme="dark"] .star.is-lit {
+  color: #ffd166;
+  text-shadow: 0 0 12px rgba(255, 209, 102, 0.6);
+}
+
+/* 休息态：整块底板转为薄荷绿 */
+:root[data-phase="break"] {
+  --accent: #2fbf8f;
+  --accent-soft: rgba(47, 191, 143, 0.16);
+  --glass-fill: #edfaf4;
+  --glass-depth: linear-gradient(180deg, #f0fbf6 0%, #dff5ea 100%);
+}
+
+:root[data-theme="dark"][data-phase="break"] {
+  --glass-fill: #0d1f1a;
+  --glass-depth: linear-gradient(180deg, #102720 0%, #0a1815 100%);
+  --digit-bg: #16302a;
+  --digit-bg-2: #112420;
+}
+
+:root[data-phase="break"] .countdown,
+:root[data-phase="break"] .status {
+  color: var(--accent);
+}
+
+/* 静音按钮图标切换 */
+:root[data-muted="false"] #mute-btn .icon-sound,
+:root[data-muted="true"] #mute-btn .icon-mute {
+  display: block;
+}
+
+/* 精简模式：隐藏陪伴信息 */
+:root[data-layout="compact"] .tip,
+:root[data-layout="compact"] .stars,
+:root[data-layout="compact"] .status {
+  display: none;
 }
 
 /* ---------- 无障碍：减少动态效果 ---------- */
