@@ -1,22 +1,47 @@
 /* ==========================================================================
-   时隙 TimeGap · M0 基础外壳样式
-   设计令牌见 README「3.2 主题系统」，此处为浅色主题（默认）基线。
+   时隙 TimeGap · 主界面骨架（M0 视觉层）
+   设计令牌见 README「3.2 主题系统」；明暗两套主题只切换变量，不写两套样式。
    ========================================================================== */
 
+/* ---------- 设计令牌：浅色（默认） ---------- */
 :root {
+  color-scheme: light;
+
   /* 玻璃层 */
-  --glass-fill: rgba(173, 216, 230, 0.3);
-  --glass-stroke: rgba(255, 255, 255, 0.65);
-  --glass-highlight: rgba(255, 255, 255, 0.7);
+  --glass-fill: rgba(206, 228, 246, 0.9);
+  --glass-stroke: rgba(255, 255, 255, 0.9);
+  --glass-highlight: rgba(255, 255, 255, 0.9);
+  --glass-sheen: rgba(255, 255, 255, 0.5);
+  --glass-depth: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.32) 0%,
+    rgba(31, 84, 140, 0.06) 100%
+  );
 
   /* 文字 */
   --text-primary: #1e3a5f;
   --text-secondary: #5b7290;
 
-  /* 形状与阴影 */
+  /* 强调色 */
+  --accent: #4fa8e0;
+  --accent-soft: rgba(79, 168, 224, 0.16);
+
+  /* 数字卡片：接近纯白，与浅蓝底板拉开层次 */
+  --digit-bg: #ffffff;
+  --digit-bg-2: #f1f7ff;
+  --digit-color: #1e3a5f;
+  --digit-glow: 0 0 0 rgba(0, 0, 0, 0);
+  --seam: rgba(30, 58, 95, 0.1);
+
+  /* 按钮 */
+  --btn-bg: rgba(255, 255, 255, 0.5);
+  --btn-bg-hover: rgba(255, 255, 255, 0.82);
+
+  /* 形状 */
   --radius-window: 20px;
-  --shadow-soft: 0 8px 32px rgba(31, 84, 140, 0.1);
-  --blur-strength: 20px;
+  --radius-digit: 16px;
+  --shadow-soft: 0 12px 40px rgba(31, 84, 140, 0.16);
+  --blur-strength: 30px;
 
   font-family: "Microsoft YaHei UI", "PingFang SC", Inter, system-ui,
     -apple-system, "Segoe UI", sans-serif;
@@ -26,7 +51,39 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* 窗口本体全透明：圆角与毛玻璃由卡片负责 */
+/* ---------- 设计令牌：深色（深空蓝 + 发光蓝字） ---------- */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --glass-fill: rgba(11, 22, 39, 0.94);
+  --glass-stroke: rgba(94, 200, 255, 0.22);
+  --glass-highlight: rgba(94, 200, 255, 0.16);
+  --glass-sheen: rgba(94, 200, 255, 0.07);
+  --glass-depth: linear-gradient(
+    180deg,
+    rgba(94, 200, 255, 0.06) 0%,
+    rgba(0, 0, 0, 0.28) 100%
+  );
+
+  --text-primary: #a8d8ff;
+  --text-secondary: #7b93b5;
+
+  --accent: #5ec8ff;
+  --accent-soft: rgba(94, 200, 255, 0.14);
+
+  --digit-bg: rgba(38, 62, 96, 0.95);
+  --digit-bg-2: rgba(26, 46, 74, 0.95);
+  --digit-color: #a8d8ff;
+  --digit-glow: 0 0 26px rgba(94, 200, 255, 0.45);
+  --seam: rgba(94, 200, 255, 0.18);
+
+  --btn-bg: rgba(94, 200, 255, 0.1);
+  --btn-bg-hover: rgba(94, 200, 255, 0.2);
+
+  --shadow-soft: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+/* ---------- 基础 ---------- */
 html,
 body {
   margin: 0;
@@ -49,21 +106,23 @@ body {
   height: 100%;
 }
 
-/* 毛玻璃卡片：铺满窗口，同时作为拖拽区域 */
+/* ---------- 毛玻璃卡片（整窗，同时是拖拽区） ---------- */
 .glass-card {
   position: absolute;
   inset: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  padding: 18px 26px 22px;
+  box-sizing: border-box;
   border-radius: var(--radius-window);
   border: 1px solid var(--glass-stroke);
   background:
     radial-gradient(
       120% 120% at 15% 0%,
-      rgba(255, 255, 255, 0.5) 0%,
+      var(--glass-sheen) 0%,
       rgba(255, 255, 255, 0) 55%
     ),
+    var(--glass-depth),
     var(--glass-fill);
   -webkit-backdrop-filter: blur(var(--blur-strength)) saturate(140%);
   backdrop-filter: blur(var(--blur-strength)) saturate(140%);
@@ -71,71 +130,275 @@ body {
     var(--shadow-soft),
     inset 0 1px 0 var(--glass-highlight);
   cursor: grab;
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
 }
 
 .glass-card:active {
   cursor: grabbing;
 }
 
-/* 占位标题：品牌名 + 英文标 */
-.app-title {
-  margin: 0;
-  padding-left: 0.24em;
-  font-size: 32px;
-  font-weight: 400;
-  letter-spacing: 0.24em;
-  color: var(--text-primary);
-  pointer-events: none;
+/* ---------- 顶栏 ---------- */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 36px;
+  flex: none;
+  pointer-events: none; /* 空白处交给卡片拖拽 */
 }
 
-.app-subtitle {
-  margin: 10px 0 0;
-  padding-left: 0.42em;
-  font-size: 10px;
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.brand-cn {
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: 0.3em;
+  color: var(--text-primary);
+  transition: color 0.3s ease;
+}
+
+.brand-en {
+  font-size: 9px;
   font-weight: 500;
-  letter-spacing: 0.42em;
+  letter-spacing: 0.32em;
   text-transform: uppercase;
   color: var(--text-secondary);
-  opacity: 0.75;
+  opacity: 0.7;
+  transition: color 0.3s ease;
+}
+
+:root[data-theme="dark"] .brand-en {
+  color: #8fb3d9;
+  opacity: 0.85;
+}
+
+.controls {
+  display: flex;
+  gap: 8px;
   pointer-events: none;
 }
 
-/* 关闭按钮：悬浮于卡片右上角，不参与拖拽 */
-.close-btn {
-  position: absolute;
-  top: 14px;
-  right: 14px;
+.icon-btn {
+  pointer-events: auto;
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   padding: 0;
   border: 1px solid rgba(30, 58, 95, 0.08);
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.45);
+  background: var(--btn-bg);
   color: var(--text-secondary);
   cursor: pointer;
   transition:
-    background-color 0.18s ease,
-    color 0.18s ease,
-    transform 0.18s ease;
+    background-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease,
+    border-color 0.3s ease;
 }
 
-.close-btn:hover {
-  background: rgba(255, 255, 255, 0.85);
+:root[data-theme="dark"] .icon-btn {
+  border-color: rgba(94, 200, 255, 0.16);
+}
+
+.icon-btn:hover {
+  background: var(--btn-bg-hover);
   color: var(--text-primary);
 }
 
-.close-btn:active {
+.icon-btn:active {
   transform: scale(0.94);
 }
 
-.close-btn:focus-visible {
-  outline: 2px solid rgba(79, 168, 224, 0.6);
+.icon-btn:focus-visible {
+  outline: 2px solid var(--accent-soft);
   outline-offset: 2px;
 }
 
-.close-btn svg {
-  width: 12px;
-  height: 12px;
+.icon-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* 主题按钮：按当前模式显示对应图标 */
+.icon-btn .icon {
+  display: none;
+}
+
+:root[data-mode="light"] .icon-sun,
+:root[data-mode="dark"] .icon-moon,
+:root[data-mode="system"] .icon-auto {
+  display: block;
+}
+
+/* ---------- 主舞台 ---------- */
+.stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  pointer-events: none; /* 同上：空白处可拖拽 */
+}
+
+/* ---------- 翻页式时钟 ---------- */
+.clock {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.digit-card {
+  position: relative;
+  width: 88px;
+  height: 122px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-digit);
+  border: 1px solid var(--glass-stroke);
+  background: linear-gradient(
+    180deg,
+    var(--digit-bg) 0%,
+    var(--digit-bg) 49.4%,
+    var(--seam) 49.4%,
+    var(--seam) 50.6%,
+    var(--digit-bg-2) 50.6%,
+    var(--digit-bg-2) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 10px 24px rgba(31, 84, 140, 0.12);
+  overflow: hidden;
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+:root[data-theme="dark"] .digit-card {
+  box-shadow:
+    inset 0 1px 0 rgba(94, 200, 255, 0.12),
+    0 6px 18px rgba(0, 0, 0, 0.25);
+}
+
+.digit-card span {
+  font-family: "Segoe UI", Inter, system-ui, -apple-system, sans-serif;
+  font-size: 78px;
+  line-height: 1;
+  font-weight: 200;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+  color: var(--digit-color);
+  text-shadow: var(--digit-glow);
+  transition:
+    color 0.3s ease,
+    text-shadow 0.3s ease;
+}
+
+.colon {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 0 2px;
+}
+
+.colon i {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--digit-color);
+  opacity: 0.5;
+  transition:
+    background-color 0.3s ease,
+    opacity 0.3s ease;
+}
+
+/* ---------- 科目标签 ---------- */
+.subject {
+  margin: 0;
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  color: var(--text-secondary);
+  opacity: 0.85;
+  transition: color 0.3s ease;
+}
+
+/* ---------- 主按钮 ---------- */
+.primary {
+  pointer-events: auto;
+  margin-top: 2px;
+  padding: 11px 32px;
+  border: 1px solid var(--glass-stroke);
+  border-radius: 999px;
+  background: var(--btn-bg);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 14px;
+  letter-spacing: 0.18em;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.3s ease,
+    color 0.3s ease,
+    transform 0.2s ease;
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--btn-bg-hover);
+}
+
+.primary:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ---------- 提示 ---------- */
+.hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  opacity: 0.65;
+  transition: color 0.3s ease;
+}
+
+kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  margin: 0 2px;
+  border: 1px solid rgba(30, 58, 95, 0.12);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.35);
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    color 0.3s ease;
+}
+
+:root[data-theme="dark"] kbd {
+  border-color: rgba(94, 200, 255, 0.16);
+  background: rgba(94, 200, 255, 0.08);
+}
+
+/* ---------- 无障碍：减少动态效果 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
+  }
 }
