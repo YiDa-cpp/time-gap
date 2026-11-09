@@ -26,5 +26,10 @@ dist-ssr
 # Rust 依赖缓存（本地重定向的 CARGO_HOME，30MB 级，绝不入库）
 .cargo-home/
 
+# Cargo 编译输出：src-tauri/.cargo/config.toml 已指向 D:\CsSoftware\TimeGap-Build（仓库外）；
+# 若日后把 target-dir 改回仓库内，下面这条规则兜底
+TimeGap-Build/
+target/
+
 # 本地沙箱/工具产生的临时产物
 .dsh-acl-recovery/

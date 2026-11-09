@@ -471,16 +471,18 @@ Windows 的「专注助手 / 勿扰」**没有公开的稳定 API**。因此该�
 
 ```text
 npm install          # 安装前端依赖（已完成）
-npm run tauri dev    # 开发模式启动桌面应用
+npm run tauri dev    # 启动开发模式
 npm run tauri build  # 生产打包
 npx tsc --noEmit     # 类型检查
 ```
 
-环境提示（当前机器实测）：
+**启动只需要一条命令**：`npm run tauri dev`，不需要预先设置任何环境变量。
 
-- 本会话 shell 的 `PATH` 未包含 `D:\CsSoftware\Rust\.cargo\bin`，需显式加入，并设置 `CARGO_HOME` / `RUSTUP_HOME`。
-- 默认 npm 缓存目录不可写时，需将 `npm_config_cache` 指向可写目录。
-- 在受限沙箱中，Node 子进程管道与 `CARGO_HOME` 写入可能被拦截；编译与打包建议在普通终端中执行。
+编译输出位置由 [`src-tauri/.cargo/config.toml`](src-tauri/.cargo/config.toml) 固定：
+
+- `target-dir` 指向 `D:\CsSoftware\TimeGap-Build`，编译产物不落在项目内、也不占用 C 盘 Temp；
+- 该目录在仓库之外，不会进入版本控制；
+- 首次编译会在该路径下重建完整依赖（约 3–5 分钟），之后为增量编译。
 
 ### 8.4 验收清单（每个迭代结束自查）
 
