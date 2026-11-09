@@ -1,4 +1,4 @@
-import { getCurrentWindow, currentMonitor, cursorPosition } from "@tauri-apps/api/window";
+﻿import { getCurrentWindow, currentMonitor, cursorPosition } from "@tauri-apps/api/window";
 import { LogicalSize, PhysicalPosition, PhysicalSize } from "@tauri-apps/api/dpi";
 
 /* ============================================================
@@ -199,7 +199,10 @@ const DEFAULT_FOCUS_MINUTES = 25;
 const MIN_FOCUS_MINUTES = 1;
 const MAX_FOCUS_MINUTES = 180;
 const BREAK_MS = 5 * 60 * 1000;
-const DAILY_GOAL = 4;
+const DEFAULT_GOAL = 4;
+const MIN_GOAL = 1;
+const MAX_GOAL = 12;
+const GOAL_KEY = "timegap:daily-goal";
 const TICK_MS = 100;
 const DURATION_KEY = "timegap:focus-minutes";
 const MUTE_KEY = "timegap:muted";
@@ -247,34 +250,101 @@ function readStars(): number {
     if (!raw) return 0;
     const parsed = JSON.parse(raw) as { date?: string; count?: number };
     if (parsed.date !== todayKey() || typeof parsed.count !== "number") return 0;
-    return Math.max(0, Math.min(DAILY_GOAL, parsed.count));
+    return Math.max(0, parsed.count);
   } catch {
     return 0;
   }
 }
 
+function readGoal(): number {
+  try {
+    const raw = Number(localStorage.getItem(GOAL_KEY));
+    if (Number.isFinite(raw) && raw >= MIN_GOAL && raw <= MAX_GOAL) return Math.round(raw);
+  } catch {
+    // 忽略读取失败
+  }
+  return DEFAULT_GOAL;
+}
+
+let goal = readGoal();
 let stars = readStars();
 
 function renderStars(): void {
   if (!starsEl) return;
+  const shown = Math.min(stars, goal);
   starsEl.replaceChildren();
-  for (let index = 0; index < DAILY_GOAL; index += 1) {
+  for (let index = 0; index < goal; index += 1) {
     const star = document.createElement("span");
-    star.className = index < stars ? "star is-lit" : "star";
+    star.className = index < shown ? "star is-lit" : "star";
     star.textContent = "★";
     starsEl.appendChild(star);
   }
-  starsEl.setAttribute("aria-label", `今日目标 ${stars}/${DAILY_GOAL}`);
+  starsEl.setAttribute("aria-label", `今日目标 ${shown}/${goal}，点击设置`);
 }
 
 function addStar(): void {
-  stars = Math.min(DAILY_GOAL, stars + 1);
+  stars = Math.min(goal, stars + 1);
   try {
     localStorage.setItem(STARS_KEY, JSON.stringify({ date: todayKey(), count: stars }));
   } catch {
     // 忽略写入失败
   }
   renderStars();
+}
+
+/* ---------- 今日目标设置（点击星星区域） ---------- */
+
+const goalPop = document.getElementById("goal-pop");
+const goalGrid = document.getElementById("goal-grid");
+
+function renderGoalChips(): void {
+  if (!goalGrid) return;
+  goalGrid.replaceChildren();
+
+  for (let value = MIN_GOAL; value <= MAX_GOAL; value += 1) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = value === goal ? "goal-chip is-active" : "goal-chip";
+    chip.textContent = String(value);
+    chip.addEventListener("click", (event) => {
+      event.stopPropagation();
+      goal = value;
+      try {
+        localStorage.setItem(GOAL_KEY, String(goal));
+      } catch {
+        // 忽略
+      }
+      renderGoalChips();
+      renderStars();
+      closeGoalPopover();
+    });
+    goalGrid.appendChild(chip);
+  }
+}
+
+function openGoalPopover(): void {
+  if (!goalPop) return;
+  renderGoalChips();
+  goalPop.hidden = false;
+}
+
+function closeGoalPopover(): void {
+  if (goalPop) goalPop.hidden = true;
+}
+
+function setupGoalPicker(): void {
+  starsEl?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (goalPop?.hidden !== false) openGoalPopover();
+    else closeGoalPopover();
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!goalPop || goalPop.hidden) return;
+    const target = event.target as Node;
+    if (goalPop.contains(target) || starsEl?.contains(target)) return;
+    closeGoalPopover();
+  });
 }
 
 /* ---------- 提示音（Web Audio 合成） ---------- */
@@ -323,10 +393,15 @@ function playDing(kind: "focus" | "break" = "focus"): void {
 
 function showRipple(): void {
   if (!rippleHost) return;
-  const ring = document.createElement("span");
-  ring.className = "ripple-ring";
-  rippleHost.appendChild(ring);
-  window.setTimeout(() => ring.remove(), 700);
+
+  [0, 130].forEach((delay) => {
+    const ring = document.createElement("span");
+    ring.className = "ripple-ring";
+    ring.style.animationDelay = `${delay}ms`;
+    ring.style.opacity = "0";
+    rippleHost.appendChild(ring);
+    window.setTimeout(() => ring.remove(), 900 + delay);
+  });
 }
 
 /* ---------- 渲染 ---------- */
@@ -622,6 +697,8 @@ function hashString(value: string): number {
   return hash;
 }
 
+let lastTipIndex = -1;
+
 function refreshTip(): void {
   if (!tipEl) return;
 
@@ -632,12 +709,32 @@ function refreshTip(): void {
 
   currentTipKey = key;
   const pool = TIP_LIBRARY[slot];
-  tipEl.textContent = pool[hashString(key) % pool.length] ?? "";
+  lastTipIndex = hashString(key) % pool.length;
+  tipEl.textContent = pool[lastTipIndex] ?? "";
+}
+
+/** 「换一换」：随机换到当前时段的另一条，不影响日期种子 */
+function nextTip(): void {
+  if (!tipEl) return;
+
+  const pool = TIP_LIBRARY[slotOf(new Date().getHours())];
+  if (pool.length <= 1) return;
+
+  let index = lastTipIndex;
+  while (index === lastTipIndex) {
+    index = Math.floor(Math.random() * pool.length);
+  }
+  lastTipIndex = index;
+  tipEl.textContent = pool[index] ?? "";
 }
 
 function setupTips(): void {
   refreshTip();
   window.setInterval(refreshTip, 30_000);
+  document.querySelector<HTMLButtonElement>("#tip-next")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    nextTip();
+  });
 }
 
 /* ============================================================
@@ -1073,17 +1170,6 @@ function readHistory(): string[] {
   }
 }
 
-function renderHistory(): void {
-  const list = document.getElementById("subject-history");
-  if (!list) return;
-  list.replaceChildren();
-  readHistory().forEach((value) => {
-    const option = document.createElement("option");
-    option.value = value;
-    list.appendChild(option);
-  });
-}
-
 function rememberSubject(value: string): void {
   const trimmed = value.trim();
   if (!trimmed) return;
@@ -1096,37 +1182,147 @@ function rememberSubject(value: string): void {
   } catch {
     // 忽略写入失败
   }
+}
 
-  renderHistory();
+/* ---------- 自定义科目下拉（不用原生 datalist） ---------- */
+
+const subjectInput = document.querySelector<HTMLInputElement>("#subject");
+const subjectMenu = document.getElementById("subject-menu");
+let subjectActiveIndex = -1;
+
+function filterHistory(query: string): string[] {
+  const history = readHistory();
+  const keyword = query.trim().toLowerCase();
+  if (!keyword) return history;
+  return history.filter((item) => item.toLowerCase().includes(keyword));
+}
+
+function positionSubjectMenu(): void {
+  if (!subjectInput || !subjectMenu) return;
+
+  const card = document.querySelector<HTMLElement>(".glass-card");
+  if (!card) return;
+
+  const inputRect = subjectInput.getBoundingClientRect();
+  const cardRect = card.getBoundingClientRect();
+
+  subjectMenu.style.left = `${inputRect.left - cardRect.left}px`;
+  subjectMenu.style.top = `${inputRect.bottom - cardRect.top + 6}px`;
+  subjectMenu.style.width = `${inputRect.width}px`;
+}
+
+function paintSubjectMenu(): void {
+  if (!subjectInput || !subjectMenu) return;
+
+  const items = filterHistory(subjectInput.value);
+  subjectMenu.replaceChildren();
+
+  if (items.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "subject-empty";
+    empty.textContent = "还没有历史科目";
+    subjectMenu.appendChild(empty);
+  } else {
+    items.forEach((value, index) => {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = index === subjectActiveIndex ? "subject-item is-active" : "subject-item";
+      item.setAttribute("role", "option");
+      item.textContent = value;
+      item.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+        chooseSubject(value);
+      });
+      subjectMenu.appendChild(item);
+    });
+  }
+
+  subjectActiveIndex = Math.min(subjectActiveIndex, items.length - 1);
+  positionSubjectMenu();
+  subjectMenu.hidden = false;
+  subjectInput.setAttribute("aria-expanded", "true");
+}
+
+function closeSubjectMenu(): void {
+  if (!subjectMenu) return;
+  subjectMenu.hidden = true;
+  subjectActiveIndex = -1;
+  subjectInput?.setAttribute("aria-expanded", "false");
+}
+
+function chooseSubject(value: string): void {
+  if (!subjectInput) return;
+  subjectInput.value = value;
+  try {
+    localStorage.setItem(SUBJECT_KEY, value);
+  } catch {
+    // 忽略
+  }
+  closeSubjectMenu();
+  subjectInput.blur();
 }
 
 function setupSubject(): void {
-  const input = document.querySelector<HTMLInputElement>("#subject");
-  if (!input) return;
+  if (!subjectInput) return;
 
   try {
     const saved = localStorage.getItem(SUBJECT_KEY);
-    if (saved) input.value = saved;
+    if (saved) subjectInput.value = saved;
   } catch {
     // 忽略
   }
 
-  renderHistory();
-
-  input.addEventListener("input", () => {
+  subjectInput.addEventListener("input", () => {
     try {
-      localStorage.setItem(SUBJECT_KEY, input.value);
+      localStorage.setItem(SUBJECT_KEY, subjectInput.value);
     } catch {
       // 忽略
     }
+    subjectActiveIndex = -1;
+    paintSubjectMenu();
   });
 
-  input.addEventListener("change", () => rememberSubject(input.value));
+  subjectInput.addEventListener("focus", () => {
+    subjectActiveIndex = -1;
+    paintSubjectMenu();
+  });
 
-  input.addEventListener("keydown", (event) => {
+  subjectInput.addEventListener("blur", () => {
+    rememberSubject(subjectInput.value);
+    window.setTimeout(closeSubjectMenu, 120);
+  });
+
+  subjectInput.addEventListener("keydown", (event) => {
+    const items = filterHistory(subjectInput.value);
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      subjectActiveIndex = Math.min(items.length - 1, subjectActiveIndex + 1);
+      paintSubjectMenu();
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      subjectActiveIndex = Math.max(0, subjectActiveIndex - 1);
+      paintSubjectMenu();
+      return;
+    }
+
     if (event.key === "Enter") {
-      rememberSubject(input.value);
-      input.blur();
+      if (subjectActiveIndex >= 0 && items[subjectActiveIndex]) {
+        event.preventDefault();
+        chooseSubject(items[subjectActiveIndex]);
+      } else {
+        rememberSubject(subjectInput.value);
+        closeSubjectMenu();
+        subjectInput.blur();
+      }
+      return;
+    }
+
+    if (event.key === "Escape") {
+      closeSubjectMenu();
     }
   });
 }
@@ -1242,6 +1438,7 @@ window.addEventListener("DOMContentLoaded", () => {
   setupButtons();
   setupDockHover();
   setupTips();
+  setupGoalPicker();
   startWorldClock();
   renderStars();
   renderCountdown();
