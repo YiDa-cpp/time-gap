@@ -1,4 +1,4 @@
-import { getCurrentWindow, currentMonitor, cursorPosition } from "@tauri-apps/api/window";
+﻿import { getCurrentWindow, currentMonitor, cursorPosition } from "@tauri-apps/api/window";
 import { LogicalSize, PhysicalPosition, PhysicalSize } from "@tauri-apps/api/dpi";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -1760,6 +1760,7 @@ interface AppearanceState {
   scale: number;
   cardAlpha: number;
   folder: string | null;
+  fit: "cover" | "contain";
 }
 
 const APPEARANCE_KEY = "timegap:appearance";
@@ -1773,6 +1774,7 @@ const DEFAULT_APPEARANCE: AppearanceState = {
   scale: 100,
   cardAlpha: 100,
   folder: null,
+  fit: "cover",
 };
 
 function readAppearance(): AppearanceState {
@@ -1789,6 +1791,7 @@ function readAppearance(): AppearanceState {
       scale: Number.isFinite(parsed.scale) ? Number(parsed.scale) : 100,
       cardAlpha: Number.isFinite(parsed.cardAlpha) ? Number(parsed.cardAlpha) : 100,
       folder: typeof parsed.folder === "string" ? parsed.folder : null,
+      fit: parsed.fit === "contain" ? "contain" : "cover",
     };
   } catch {
     return { ...DEFAULT_APPEARANCE };
@@ -1874,6 +1877,7 @@ function applyAppearance(): void {
 
   if (layer) {
     layer.style.backgroundImage = appearance.image ? `url("${appearance.image}")` : "";
+    layer.style.backgroundSize = appearance.fit === "contain" ? "contain" : "cover";
     layer.style.filter = appearance.image ? `blur(${appearance.blur}px)` : "none";
     layer.style.transform = `scale(${appearance.image ? appearance.scale / 100 : 1})`;
     layer.classList.toggle("is-on", Boolean(appearance.image));
@@ -1941,6 +1945,12 @@ function paintAppearanceControls(): void {
   if (dimVal) dimVal.textContent = `${appearance.dim}%`;
   if (scaleVal) scaleVal.textContent = `${appearance.scale}%`;
   if (alphaVal) alphaVal.textContent = `${appearance.cardAlpha}%`;
+
+  document.querySelectorAll<HTMLButtonElement>("#fit-seg .seg-btn").forEach((button) => {
+    const active = (button.dataset.fit ?? "cover") === appearance.fit;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
 }
 
 function setFolderHint(text: string): void {
@@ -2057,6 +2067,16 @@ function setupAppearance(): void {
   bindSlider("bg-scale", "scale", "%");
   bindSlider("card-alpha", "cardAlpha", "%");
 
+  document.querySelectorAll<HTMLButtonElement>("#fit-seg .seg-btn").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      appearance.fit = button.dataset.fit === "contain" ? "contain" : "cover";
+      storeAppearance();
+      applyAppearance();
+      paintAppearanceControls();
+    });
+  });
+
   document.querySelector<HTMLButtonElement>("#appearance-btn")?.addEventListener("click", (event) => {
     event.stopPropagation();
     closeMenus();
@@ -2116,6 +2136,137 @@ function setupAppearance(): void {
   if (appearance.folder) {
     void loadWallpaperFromFolder(appearance.folder);
   }
+}
+
+/* ============================================================
+   时钟自由布局：拖拽 / 滚轮缩放 / 记忆
+   ============================================================ */
+
+interface ClockLayout {
+  x: number;
+  y: number;
+  scale: number;
+}
+
+const CLOCK_LAYOUT_KEY = "timegap:clock-layout";
+const MIN_CLOCK_SCALE = 0.55;
+const MAX_CLOCK_SCALE = 2;
+
+function readClockLayout(): ClockLayout {
+  try {
+    const raw = localStorage.getItem(CLOCK_LAYOUT_KEY);
+    if (!raw) return { x: 0, y: 0, scale: 1 };
+
+    const parsed = JSON.parse(raw) as Partial<ClockLayout>;
+    return {
+      x: Number.isFinite(parsed.x) ? Number(parsed.x) : 0,
+      y: Number.isFinite(parsed.y) ? Number(parsed.y) : 0,
+      scale: Number.isFinite(parsed.scale) ? Number(parsed.scale) : 1,
+    };
+  } catch {
+    return { x: 0, y: 0, scale: 1 };
+  }
+}
+
+let clockLayout = readClockLayout();
+
+function applyClockLayout(): void {
+  const clock = document.getElementById("clock");
+  if (!clock) return;
+
+  clock.style.setProperty("--clock-x", `${clockLayout.x}px`);
+  clock.style.setProperty("--clock-y", `${clockLayout.y}px`);
+  clock.style.setProperty("--clock-scale", String(clockLayout.scale));
+}
+
+function storeClockLayout(): void {
+  try {
+    localStorage.setItem(CLOCK_LAYOUT_KEY, JSON.stringify(clockLayout));
+  } catch {
+    // 忽略
+  }
+}
+
+function resetClockLayout(): void {
+  clockLayout = { x: 0, y: 0, scale: 1 };
+  storeClockLayout();
+  applyClockLayout();
+}
+
+function setupClockLayout(): void {
+  const clock = document.getElementById("clock");
+  if (!clock) return;
+
+  applyClockLayout();
+
+  let dragging = false;
+  let startX = 0;
+  let startY = 0;
+  let originX = 0;
+  let originY = 0;
+
+  clock.addEventListener("pointerdown", (event) => {
+    if (layout !== "normal" || event.button !== 0) return;
+
+    dragging = true;
+    startX = event.clientX;
+    startY = event.clientY;
+    originX = clockLayout.x;
+    originY = clockLayout.y;
+    clock.classList.add("is-dragging");
+    clock.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    event.stopPropagation();
+  });
+
+  clock.addEventListener("pointermove", (event) => {
+    if (!dragging) return;
+    clockLayout.x = Math.round(originX + (event.clientX - startX));
+    clockLayout.y = Math.round(originY + (event.clientY - startY));
+    applyClockLayout();
+  });
+
+  const finishDrag = (event: PointerEvent): void => {
+    if (!dragging) return;
+    dragging = false;
+    clock.classList.remove("is-dragging");
+    try {
+      clock.releasePointerCapture(event.pointerId);
+    } catch {
+      // 忽略
+    }
+    storeClockLayout();
+  };
+
+  clock.addEventListener("pointerup", finishDrag);
+  clock.addEventListener("pointercancel", finishDrag);
+
+  // 滚轮缩放：面板内滚动即缩放时钟
+  clock.addEventListener(
+    "wheel",
+    (event) => {
+      if (layout !== "normal") return;
+      event.preventDefault();
+
+      const factor = event.deltaY > 0 ? 0.94 : 1.06;
+      const next = Math.min(
+        MAX_CLOCK_SCALE,
+        Math.max(MIN_CLOCK_SCALE, Number((clockLayout.scale * factor).toFixed(3))),
+      );
+
+      if (next === clockLayout.scale) return;
+      clockLayout.scale = next;
+      applyClockLayout();
+      storeClockLayout();
+    },
+    { passive: false },
+  );
+
+  document.querySelector<HTMLButtonElement>("#reset-layout-btn")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    resetClockLayout();
+    window.setTimeout(closeMenus, 0);
+  });
 }
 
 /* ---------- 开机自启 ---------- */
@@ -2292,6 +2443,7 @@ window.addEventListener("DOMContentLoaded", () => {
   setupStats();
   setupMenus();
   setupAppearance();
+  setupClockLayout();
   void setupSettings();
   startWorldClock();
   renderStars();

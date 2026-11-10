@@ -2280,6 +2280,81 @@ kbd {
   text-shadow: 0 1px 10px rgba(255, 255, 255, 0.65);
 }
 
+/* ---------- 时钟自由布局 ---------- */
+.clock {
+  transform: translate(var(--clock-x, 0px), var(--clock-y, 0px)) scale(var(--clock-scale, 1));
+  transform-origin: center center;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  will-change: transform;
+}
+
+.clock.is-dragging {
+  cursor: grabbing;
+}
+
+:root[data-layout="fullscreen"] .clock,
+:root[data-layout="compact"] .clock {
+  cursor: default;
+}
+
+:root[data-layout="fullscreen"] .clock {
+  transform: none;
+}
+
+/* ---------- 悬浮「换一条建议」 ---------- */
+.tip-shuffle {
+  position: absolute;
+  right: 16px;
+  bottom: 26px;
+  z-index: 25;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--glass-stroke);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--btn-bg) 72%, transparent);
+  color: var(--text-secondary);
+  opacity: 0.6;
+  cursor: pointer;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease,
+    background-color 0.2s ease;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.tip-shuffle:hover {
+  opacity: 1;
+  transform: scale(1.06);
+}
+
+.tip-shuffle svg {
+  width: 14px;
+  height: 14px;
+}
+
+:root[data-layout="compact"] .tip-shuffle,
+:root[data-layout="fullscreen"] .tip-shuffle {
+  display: none;
+}
+
+/* ---------- 背景填充方式 ---------- */
+.fit-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bg-layer {
+  background-repeat: no-repeat;
+}
+
 /* ---------- 无障碍：减少动态效果 ---------- */
 @media (prefers-reduced-motion: reduce) {
   * {
