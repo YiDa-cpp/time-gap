@@ -1,5 +1,6 @@
-import { getCurrentWindow, currentMonitor, cursorPosition } from "@tauri-apps/api/window";
+﻿import { getCurrentWindow, currentMonitor, cursorPosition } from "@tauri-apps/api/window";
 import { LogicalSize, PhysicalPosition, PhysicalSize } from "@tauri-apps/api/dpi";
+import { invoke } from "@tauri-apps/api/core";
 
 /* ============================================================
    主题：浅色 / 深色 / 跟随系统（三态循环，持久化）
@@ -522,6 +523,11 @@ function finishFocus(): void {
   addStar();
   showRipple();
   playDing("focus");
+  recordFocusSession();
+
+  if (statsPanel && !statsPanel.hidden) {
+    void loadSessions().then(renderStats);
+  }
 
   if (primaryButton) {
     primaryButton.classList.remove("flash");
@@ -1358,6 +1364,178 @@ function setupSubject(): void {
 }
 
 /* ============================================================
+   专注统计（M3）：会话落盘 + 统计面板
+   ============================================================ */
+
+interface SessionRecord {
+  start: string;
+  end: string;
+  durationSec: number;
+  subject: string;
+  completed: boolean;
+}
+
+const SESSION_FALLBACK_KEY = "timegap:sessions";
+
+function readFallbackSessions(): SessionRecord[] {
+  try {
+    const raw = localStorage.getItem(SESSION_FALLBACK_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? (parsed as SessionRecord[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeFallbackSessions(list: SessionRecord[]): void {
+  try {
+    localStorage.setItem(SESSION_FALLBACK_KEY, JSON.stringify(list.slice(-500)));
+  } catch {
+    // 忽略写入失败
+  }
+}
+
+async function loadSessions(): Promise<SessionRecord[]> {
+  try {
+    const data = await invoke<SessionRecord[]>("load_sessions");
+    return Array.isArray(data) ? data : [];
+  } catch {
+    // 非 Tauri 环境或命令失败：回退到本地缓存，保证面板仍可用
+    return readFallbackSessions();
+  }
+}
+
+async function persistSession(record: SessionRecord): Promise<void> {
+  try {
+    await invoke("save_session", { session: record });
+  } catch {
+    writeFallbackSessions([...readFallbackSessions(), record]);
+  }
+}
+
+function dateKey(date: Date): string {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+}
+
+const statsPanel = document.getElementById("stats-panel");
+const statsChart = document.getElementById("stats-chart");
+const statsHint = document.getElementById("stats-hint");
+
+function renderStats(sessions: SessionRecord[]): void {
+  const today = dateKey(new Date());
+  let todaySeconds = 0;
+  let todayCount = 0;
+
+  const days: { key: string; label: string; seconds: number }[] = [];
+  for (let offset = 6; offset >= 0; offset -= 1) {
+    const day = new Date();
+    day.setDate(day.getDate() - offset);
+    days.push({
+      key: dateKey(day),
+      label: `${day.getMonth() + 1}/${day.getDate()}`,
+      seconds: 0,
+    });
+  }
+
+  sessions.forEach((session) => {
+    const startedAt = new Date(session.start);
+    if (Number.isNaN(startedAt.getTime())) return;
+
+    const key = dateKey(startedAt);
+    const seconds = Math.max(0, Math.round(session.durationSec || 0));
+
+    if (key === today) {
+      todaySeconds += seconds;
+      todayCount += 1;
+    }
+
+    const bucket = days.find((item) => item.key === key);
+    if (bucket) bucket.seconds += seconds;
+  });
+
+  const minutesEl = document.getElementById("stat-today-min");
+  const countEl = document.getElementById("stat-today-count");
+  if (minutesEl) minutesEl.textContent = String(Math.round(todaySeconds / 60));
+  if (countEl) countEl.textContent = String(todayCount);
+
+  if (statsChart) {
+    statsChart.replaceChildren();
+    const peak = Math.max(...days.map((day) => day.seconds), 1);
+
+    days.forEach((day) => {
+      const column = document.createElement("div");
+      column.className = "chart-col";
+
+      const bar = document.createElement("div");
+      bar.className = "chart-bar";
+      if (day.key === today) bar.classList.add("is-today");
+      const height = day.seconds === 0 ? 3 : Math.max(8, Math.round((day.seconds / peak) * 86));
+      bar.style.height = `${height}%`;
+      bar.title = `${day.label} · ${Math.round(day.seconds / 60)} 分钟`;
+
+      const label = document.createElement("span");
+      label.className = "chart-day";
+      label.textContent = day.label;
+
+      column.append(bar, label);
+      statsChart.appendChild(column);
+    });
+  }
+
+  if (statsHint) {
+    statsHint.textContent =
+      sessions.length === 0
+        ? "还没有记录，完成一个番茄后这里会有数据。"
+        : `共记录 ${sessions.length} 个完成的番茄`;
+  }
+}
+
+async function openStats(): Promise<void> {
+  if (!statsPanel) return;
+  renderStats(await loadSessions());
+  statsPanel.hidden = false;
+}
+
+function closeStats(): void {
+  if (statsPanel) statsPanel.hidden = true;
+}
+
+function recordFocusSession(): void {
+  const endedAt = new Date();
+  const startedAt = new Date(endedAt.getTime() - focusMs);
+  const input = document.querySelector<HTMLInputElement>("#subject");
+  const subject = input?.value.trim() || "未分类";
+
+  void persistSession({
+    start: startedAt.toISOString(),
+    end: endedAt.toISOString(),
+    durationSec: Math.round(focusMs / 1000),
+    subject,
+    completed: true,
+  });
+}
+
+function setupStats(): void {
+  document.querySelector<HTMLButtonElement>("#stats-btn")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (statsPanel && !statsPanel.hidden) closeStats();
+    else void openStats();
+  });
+
+  document.querySelector<HTMLButtonElement>("#stats-close")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    closeStats();
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!statsPanel || statsPanel.hidden) return;
+    const target = event.target as Node;
+    if (statsPanel.contains(target)) return;
+    closeStats();
+  });
+}
+
+/* ============================================================
    快捷键：Space 开始 / 暂停，Esc 退出全屏或还原胶囊
    ============================================================ */
 
@@ -1367,6 +1545,12 @@ function setupKeyboard(): void {
       if (durationPop && !durationPop.hidden) {
         event.preventDefault();
         closeDurationPopover();
+        return;
+      }
+
+      if (statsPanel && !statsPanel.hidden) {
+        event.preventDefault();
+        closeStats();
         return;
       }
 
@@ -1469,6 +1653,7 @@ window.addEventListener("DOMContentLoaded", () => {
   setupDockHover();
   setupTips();
   setupGoalPicker();
+  setupStats();
   startWorldClock();
   renderStars();
   renderCountdown();

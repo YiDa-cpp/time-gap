@@ -126,6 +126,23 @@
             </button>
 
             <button
+              id="stats-btn"
+              class="icon-btn"
+              type="button"
+              aria-label="专注统计"
+              title="专注统计"
+            >
+              <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path
+                  d="M3 13V8.5M8 13V3.5M13 13V6"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+
+            <button
               id="mute-btn"
               class="icon-btn mute-btn"
               type="button"
@@ -318,6 +335,30 @@
             <div id="progress-fill" class="progress-fill"></div>
           </div>
         </footer>
+
+        <div id="stats-panel" class="stats-panel" role="dialog" aria-label="专注统计" hidden>
+          <header class="stats-head">
+            <span class="stats-title">专注统计</span>
+            <button id="stats-close" class="stats-close" type="button" aria-label="关闭统计">
+              ×
+            </button>
+          </header>
+
+          <div class="stats-cards">
+            <div class="stat-card">
+              <span id="stat-today-min" class="stat-value">0</span>
+              <span class="stat-label">今日专注（分钟）</span>
+            </div>
+            <div class="stat-card">
+              <span id="stat-today-count" class="stat-value">0</span>
+              <span class="stat-label">今日番茄</span>
+            </div>
+          </div>
+
+          <div class="chart" id="stats-chart" aria-label="最近 7 天专注趋势"></div>
+
+          <p class="stats-hint" id="stats-hint"></p>
+        </div>
 
         <div class="ripple-host" id="ripple" aria-hidden="true"></div>
         <div class="breath" aria-hidden="true"></div>
