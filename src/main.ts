@@ -1,4 +1,4 @@
-﻿import { getCurrentWindow, currentMonitor, cursorPosition } from "@tauri-apps/api/window";
+import { getCurrentWindow, currentMonitor, cursorPosition } from "@tauri-apps/api/window";
 import { LogicalSize, PhysicalPosition, PhysicalSize } from "@tauri-apps/api/dpi";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -1184,6 +1184,53 @@ function setupDockHover(): void {
 
   card.addEventListener("dblclick", () => {
     if (layout === "compact") void restoreFromCompact();
+  });
+}
+
+/* ============================================================
+   窗口拖拽：自己接管 mousedown，避开按钮 / 输入框 / 时钟
+   （不再依赖 data-tauri-drag-region，彻底与时钟拖拽解耦）
+   ============================================================ */
+
+const NO_DRAG_SELECTOR = [
+  "button",
+  "input",
+  "textarea",
+  "select",
+  "label",
+  "a",
+  "kbd",
+  ".menu-pop",
+  ".appearance",
+  ".stats-panel",
+  ".confirm",
+  ".duration-pop",
+  ".goal-pop",
+  ".quick-action",
+  ".tip-next",
+].join(", ");
+
+function setupWindowDrag(): void {
+  const card = document.querySelector<HTMLElement>(".glass-card");
+  if (!card) return;
+
+  card.addEventListener("mousedown", (event) => {
+    if (event.button !== 0) return;
+    if (layout === "fullscreen") return;
+
+    const target = event.target as HTMLElement | null;
+
+    // 普通布局下时钟自己处理拖拽；胶囊态里时钟也可以拖窗口
+    if (layout !== "compact" && target?.closest(".clock")) return;
+    if (target?.closest(NO_DRAG_SELECTOR)) return;
+
+    event.preventDefault();
+
+    void appWindow()
+      .startDragging()
+      .catch(() => {
+        // 浏览器预览或权限缺失时静默失败
+      });
   });
 }
 
@@ -2483,6 +2530,7 @@ window.addEventListener("DOMContentLoaded", () => {
   setupMenus();
   setupAppearance();
   setupClockLayout();
+  setupWindowDrag();
   void setupSettings();
   startWorldClock();
   renderStars();
