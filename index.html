@@ -269,6 +269,26 @@
           </div>
 
           <div class="appearance-section">
+            <span class="section-title">壁纸文件夹（自动随机）</span>
+            <div class="folder-row">
+              <input
+                id="folder-path"
+                class="folder-input"
+                type="text"
+                placeholder="例如 D:\我的壁纸"
+                spellcheck="false"
+                autocomplete="off"
+              />
+              <button id="folder-pick" class="pill-btn" type="button">选择</button>
+            </div>
+            <div class="appearance-actions">
+              <button id="folder-apply" class="ghost-btn" type="button">应用文件夹</button>
+              <button id="folder-next" class="ghost-btn" type="button">换一张</button>
+            </div>
+            <p class="folder-hint" id="folder-hint">支持 .jpg / .jpeg / .png，启动时随机取一张</p>
+          </div>
+
+          <div class="appearance-section">
             <span class="section-title">背景参数</span>
             <label class="slider-row">
               <span class="slider-name">模糊</span>
@@ -284,6 +304,11 @@
               <span class="slider-name">缩放</span>
               <input type="range" id="bg-scale" min="100" max="200" step="5" value="100" />
               <span class="slider-value" id="bg-scale-val">100%</span>
+            </label>
+            <label class="slider-row">
+              <span class="slider-name">通透</span>
+              <input type="range" id="card-alpha" min="35" max="100" step="1" value="100" />
+              <span class="slider-value" id="card-alpha-val">100%</span>
             </label>
           </div>
 

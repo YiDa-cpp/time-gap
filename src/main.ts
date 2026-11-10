@@ -1,4 +1,4 @@
-﻿import { getCurrentWindow, currentMonitor, cursorPosition } from "@tauri-apps/api/window";
+import { getCurrentWindow, currentMonitor, cursorPosition } from "@tauri-apps/api/window";
 import { LogicalSize, PhysicalPosition, PhysicalSize } from "@tauri-apps/api/dpi";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -1758,6 +1758,8 @@ interface AppearanceState {
   blur: number;
   dim: number;
   scale: number;
+  cardAlpha: number;
+  folder: string | null;
 }
 
 const APPEARANCE_KEY = "timegap:appearance";
@@ -1769,6 +1771,8 @@ const DEFAULT_APPEARANCE: AppearanceState = {
   blur: 0,
   dim: 65,
   scale: 100,
+  cardAlpha: 100,
+  folder: null,
 };
 
 function readAppearance(): AppearanceState {
@@ -1783,6 +1787,8 @@ function readAppearance(): AppearanceState {
       blur: Number.isFinite(parsed.blur) ? Number(parsed.blur) : 0,
       dim: Number.isFinite(parsed.dim) ? Number(parsed.dim) : 65,
       scale: Number.isFinite(parsed.scale) ? Number(parsed.scale) : 100,
+      cardAlpha: Number.isFinite(parsed.cardAlpha) ? Number(parsed.cardAlpha) : 100,
+      folder: typeof parsed.folder === "string" ? parsed.folder : null,
     };
   } catch {
     return { ...DEFAULT_APPEARANCE };
@@ -1811,10 +1817,16 @@ function accentStyleEl(): HTMLStyleElement {
 }
 
 function applyAppearance(): void {
+  const root = document.documentElement;
   const style = accentStyleEl();
+
   style.textContent = appearance.accent
     ? `:root { --accent: ${appearance.accent}; --accent-soft: ${hexToRgba(appearance.accent, 0.16)}; }`
     : "";
+
+  // 有主题色时，翻页钟切换为「深色玻璃牌 + 主题色数字」
+  root.dataset.accent = appearance.accent ? "on" : "off";
+  root.style.setProperty("--card-alpha-pct", `${appearance.cardAlpha}%`);
 
   const layer = document.getElementById("bg-layer");
   const dim = document.getElementById("bg-dim");
@@ -1833,7 +1845,9 @@ function applyAppearance(): void {
 
 function storeAppearance(): void {
   try {
-    localStorage.setItem(APPEARANCE_KEY, JSON.stringify(appearance));
+    // 文件夹模式只记路径，不缓存图片本体，避免撑爆 localStorage
+    const payload = { ...appearance, image: appearance.folder ? null : appearance.image };
+    localStorage.setItem(APPEARANCE_KEY, JSON.stringify(payload));
   } catch (error) {
     console.warn("外观设置写入失败（图片可能过大）", error);
   }
@@ -1867,17 +1881,63 @@ function paintAppearanceControls(): void {
   const blur = document.querySelector<HTMLInputElement>("#bg-blur");
   const dim = document.querySelector<HTMLInputElement>("#bg-dim");
   const scale = document.querySelector<HTMLInputElement>("#bg-scale");
+  const alpha = document.querySelector<HTMLInputElement>("#card-alpha");
+  const folderInput = document.querySelector<HTMLInputElement>("#folder-path");
 
   if (blur) blur.value = String(appearance.blur);
   if (dim) dim.value = String(appearance.dim);
   if (scale) scale.value = String(appearance.scale);
+  if (alpha) alpha.value = String(appearance.cardAlpha);
+  if (folderInput && appearance.folder) folderInput.value = appearance.folder;
 
   const blurVal = document.getElementById("bg-blur-val");
   const dimVal = document.getElementById("bg-dim-val");
   const scaleVal = document.getElementById("bg-scale-val");
+  const alphaVal = document.getElementById("card-alpha-val");
   if (blurVal) blurVal.textContent = `${appearance.blur}px`;
   if (dimVal) dimVal.textContent = `${appearance.dim}%`;
   if (scaleVal) scaleVal.textContent = `${appearance.scale}%`;
+  if (alphaVal) alphaVal.textContent = `${appearance.cardAlpha}%`;
+}
+
+function setFolderHint(text: string): void {
+  const hint = document.getElementById("folder-hint");
+  if (hint) hint.textContent = text;
+}
+
+/** 从文件夹随机取一张作为背景，成功返回 true */
+async function loadWallpaperFromFolder(dir: string): Promise<boolean> {
+  const folder = dir.trim();
+  if (!folder) {
+    setFolderHint("先填一个文件夹路径");
+    return false;
+  }
+
+  try {
+    const files = await invoke<string[]>("list_wallpapers", { dir: folder });
+    if (files.length === 0) {
+      setFolderHint("这个文件夹里没有 .jpg / .png 图片");
+      return false;
+    }
+
+    const picked = files[Math.floor(Math.random() * files.length)] ?? files[0];
+    const dataUrl = await invoke<string>("read_wallpaper", { path: picked });
+
+    appearance.image = dataUrl;
+    appearance.folder = folder;
+    appearance.cardAlpha = Math.min(appearance.cardAlpha, 88);
+    storeAppearance();
+    applyAppearance();
+    paintAppearanceControls();
+
+    const name = picked.split(/[\\/]/).pop() ?? picked;
+    setFolderHint(`已换：${name}（共 ${files.length} 张）`);
+    return true;
+  } catch (error) {
+    console.warn("读取壁纸失败", error);
+    setFolderHint("读取失败，检查路径或文件权限");
+    return false;
+  }
 }
 
 function setupAppearance(): void {
@@ -1916,8 +1976,9 @@ function setupAppearance(): void {
 
     try {
       appearance.image = await fileToDataUrl(file);
-      appearance.blur = Math.max(appearance.blur, 2);
+      appearance.folder = null;
       appearance.dim = Math.max(appearance.dim, 55);
+      appearance.cardAlpha = Math.min(appearance.cardAlpha, 88);
       storeAppearance();
       applyAppearance();
       paintAppearanceControls();
@@ -1935,7 +1996,7 @@ function setupAppearance(): void {
     applyAppearance();
   });
 
-  const bindSlider = (id: string, key: "blur" | "dim" | "scale", suffix: string): void => {
+  const bindSlider = (id: string, key: "blur" | "dim" | "scale" | "cardAlpha", suffix: string): void => {
     const slider = document.querySelector<HTMLInputElement>(`#${id}`);
     const label = document.getElementById(`${id}-val`);
     if (!slider) return;
@@ -1952,12 +2013,45 @@ function setupAppearance(): void {
   bindSlider("bg-blur", "blur", "px");
   bindSlider("bg-dim", "dim", "%");
   bindSlider("bg-scale", "scale", "%");
+  bindSlider("card-alpha", "cardAlpha", "%");
 
   document.querySelector<HTMLButtonElement>("#appearance-btn")?.addEventListener("click", (event) => {
     event.stopPropagation();
     closeMenus();
     if (appearancePanel) appearancePanel.hidden = false;
     paintAppearanceControls();
+  });
+
+  document.querySelector<HTMLButtonElement>("#folder-pick")?.addEventListener("click", async (event) => {
+    event.stopPropagation();
+    try {
+      const picked = await invoke<string | null>("pick_wallpaper_folder");
+      const input = document.querySelector<HTMLInputElement>("#folder-path");
+      if (picked && input) {
+        input.value = picked;
+        await loadWallpaperFromFolder(picked);
+      }
+    } catch (error) {
+      console.warn("选择文件夹失败", error);
+      setFolderHint("打开文件夹选择器失败");
+    }
+  });
+
+  document.querySelector<HTMLButtonElement>("#folder-apply")?.addEventListener("click", async (event) => {
+    event.stopPropagation();
+    const input = document.querySelector<HTMLInputElement>("#folder-path");
+    await loadWallpaperFromFolder(input?.value ?? "");
+  });
+
+  document.querySelector<HTMLButtonElement>("#folder-next")?.addEventListener("click", async (event) => {
+    event.stopPropagation();
+    const input = document.querySelector<HTMLInputElement>("#folder-path");
+    const dir = appearance.folder || input?.value || "";
+    if (!dir) {
+      setFolderHint("先选一个文件夹");
+      return;
+    }
+    await loadWallpaperFromFolder(dir);
   });
 
   document.querySelector<HTMLButtonElement>("#appearance-close")?.addEventListener("click", (event) => {
@@ -1975,6 +2069,11 @@ function setupAppearance(): void {
 
   applyAppearance();
   paintAppearanceControls();
+
+  // 启动时若已绑定壁纸文件夹，随机换一张
+  if (appearance.folder) {
+    void loadWallpaperFromFolder(appearance.folder);
+  }
 }
 
 /* ---------- 开机自启 ---------- */

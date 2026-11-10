@@ -288,6 +288,104 @@ fn set_autostart(enabled: bool) -> Result<(), String> {
 }
 
 /* ============================================================
+   壁纸文件夹
+   ============================================================ */
+
+fn base64_encode(input: &[u8]) -> String {
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity(input.len().div_ceil(3) * 4);
+
+    for chunk in input.chunks(3) {
+        let b0 = chunk[0] as u32;
+        let b1 = *chunk.get(1).unwrap_or(&0) as u32;
+        let b2 = *chunk.get(2).unwrap_or(&0) as u32;
+        let triple = (b0 << 16) | (b1 << 8) | b2;
+
+        out.push(TABLE[((triple >> 18) & 0x3f) as usize] as char);
+        out.push(TABLE[((triple >> 12) & 0x3f) as usize] as char);
+        out.push(if chunk.len() > 1 {
+            TABLE[((triple >> 6) & 0x3f) as usize] as char
+        } else {
+            '='
+        });
+        out.push(if chunk.len() > 2 {
+            TABLE[(triple & 0x3f) as usize] as char
+        } else {
+            '='
+        });
+    }
+
+    out
+}
+
+fn is_wallpaper_file(path: &std::path::Path) -> bool {
+    path.is_file()
+        && path
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .map(|ext| matches!(ext.to_ascii_lowercase().as_str(), "jpg" | "jpeg" | "png"))
+            .unwrap_or(false)
+}
+
+#[tauri::command]
+fn list_wallpapers(dir: String) -> Result<Vec<String>, String> {
+    let entries = fs::read_dir(&dir).map_err(|error| format!("无法读取文件夹: {error}"))?;
+
+    let mut files: Vec<String> = entries
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.path())
+        .filter(|path| is_wallpaper_file(path))
+        .map(|path| path.to_string_lossy().to_string())
+        .collect();
+
+    files.sort();
+    Ok(files)
+}
+
+#[tauri::command]
+fn read_wallpaper(path: String) -> Result<String, String> {
+    let bytes = fs::read(&path).map_err(|error| format!("读取图片失败: {error}"))?;
+
+    if bytes.len() > 16 * 1024 * 1024 {
+        return Err("图片超过 16MB".into());
+    }
+
+    let is_png = path.to_ascii_lowercase().ends_with(".png");
+    let mime = if is_png { "image/png" } else { "image/jpeg" };
+
+    Ok(format!("data:{mime};base64,{}", base64_encode(&bytes)))
+}
+
+#[tauri::command]
+fn pick_wallpaper_folder() -> Result<Option<String>, String> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+        let script = "Add-Type -AssemblyName System.Windows.Forms; \
+                      $dialog = New-Object System.Windows.Forms.FolderBrowserDialog; \
+                      $dialog.Description = '选择壁纸文件夹'; \
+                      if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { \
+                        Write-Output $dialog.SelectedPath }";
+
+        let output = std::process::Command::new("powershell")
+            .args(["-NoProfile", "-STA", "-Command", script])
+            .creation_flags(CREATE_NO_WINDOW)
+            .output()
+            .map_err(|error| format!("打开文件夹选择器失败: {error}"))?;
+
+        let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        Ok(if path.is_empty() { None } else { Some(path) })
+    }
+
+    #[cfg(not(windows))]
+    {
+        Err("暂仅支持 Windows".into())
+    }
+}
+
+/* ============================================================
    启动
    ============================================================ */
 
@@ -299,7 +397,10 @@ pub fn run() {
             clear_sessions,
             save_window_state,
             is_autostart_enabled,
-            set_autostart
+            set_autostart,
+            list_wallpapers,
+            read_wallpaper,
+            pick_wallpaper_folder
         ])
         .setup(|app| {
             // 开机自启时以 --autostart 启动：直接静默进托盘，不弹窗、不抢焦点
