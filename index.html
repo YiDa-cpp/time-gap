@@ -202,6 +202,15 @@
             </svg>
             <span class="menu-label">复原时钟位置</span>
           </button>
+          <button id="zoom-in-btn" class="menu-row" type="button">
+            <span class="menu-icon" aria-hidden="true">＋</span>
+            <span class="menu-label">放大时钟</span>
+          </button>
+          <button id="zoom-out-btn" class="menu-row" type="button">
+            <span class="menu-icon" aria-hidden="true">－</span>
+            <span class="menu-label">缩小时钟</span>
+          </button>
+          <p class="menu-hint">按住时钟可拖动 · 滚轮缩放</p>
         </div>
 
         <div id="prefs-menu" class="menu-pop" hidden>
@@ -305,8 +314,8 @@
             <div class="fit-row">
               <span class="slider-name">填充</span>
               <div class="seg" id="fit-seg">
-                <button type="button" class="seg-btn" data-fit="cover">铺满</button>
                 <button type="button" class="seg-btn" data-fit="contain">完整</button>
+                <button type="button" class="seg-btn" data-fit="cover">铺满</button>
               </div>
             </div>
             <label class="slider-row">
@@ -373,7 +382,7 @@
         </div>
 
         <main class="stage">
-          <div class="clock" id="clock" role="timer" aria-label="当前时间">
+          <div class="clock" id="clock" role="timer" aria-label="当前时间" title="按住拖动位置 · 滚轮缩放大小">
             <div class="flip-card" data-pair="0"></div>
 
             <div class="colon" aria-hidden="true"><i></i><i></i></div>

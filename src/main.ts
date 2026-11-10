@@ -1,4 +1,4 @@
-﻿import { getCurrentWindow, currentMonitor, cursorPosition } from "@tauri-apps/api/window";
+import { getCurrentWindow, currentMonitor, cursorPosition } from "@tauri-apps/api/window";
 import { LogicalSize, PhysicalPosition, PhysicalSize } from "@tauri-apps/api/dpi";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -1774,7 +1774,7 @@ const DEFAULT_APPEARANCE: AppearanceState = {
   scale: 100,
   cardAlpha: 100,
   folder: null,
-  fit: "cover",
+  fit: "contain",
 };
 
 function readAppearance(): AppearanceState {
@@ -1791,7 +1791,7 @@ function readAppearance(): AppearanceState {
       scale: Number.isFinite(parsed.scale) ? Number(parsed.scale) : 100,
       cardAlpha: Number.isFinite(parsed.cardAlpha) ? Number(parsed.cardAlpha) : 100,
       folder: typeof parsed.folder === "string" ? parsed.folder : null,
-      fit: parsed.fit === "contain" ? "contain" : "cover",
+      fit: parsed.fit === "cover" ? "cover" : "contain",
     };
   } catch {
     return { ...DEFAULT_APPEARANCE };
@@ -2241,6 +2241,14 @@ function setupClockLayout(): void {
   clock.addEventListener("pointerup", finishDrag);
   clock.addEventListener("pointercancel", finishDrag);
 
+  // Tauri 的 data-tauri-drag-region 监听的是 mousedown：这里拦掉，
+  // 否则按住时钟会拖动整个窗口，而不是移动时钟
+  clock.addEventListener("mousedown", (event) => {
+    if (layout !== "normal") return;
+    event.preventDefault();
+    event.stopPropagation();
+  });
+
   // 滚轮缩放：面板内滚动即缩放时钟
   clock.addEventListener(
     "wheel",
@@ -2266,6 +2274,25 @@ function setupClockLayout(): void {
     event.stopPropagation();
     resetClockLayout();
     window.setTimeout(closeMenus, 0);
+  });
+
+  const nudgeScale = (factor: number): void => {
+    clockLayout.scale = Math.min(
+      MAX_CLOCK_SCALE,
+      Math.max(MIN_CLOCK_SCALE, Number((clockLayout.scale * factor).toFixed(3))),
+    );
+    applyClockLayout();
+    storeClockLayout();
+  };
+
+  document.querySelector<HTMLButtonElement>("#zoom-in-btn")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    nudgeScale(1.1);
+  });
+
+  document.querySelector<HTMLButtonElement>("#zoom-out-btn")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    nudgeScale(1 / 1.1);
   });
 }
 
