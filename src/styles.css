@@ -1,4 +1,4 @@
-/* ==========================================================================
+﻿/* ==========================================================================
    时隙 TimeGap · 实色玻璃板 + 翻页时钟
    ========================================================================== */
 
@@ -1854,6 +1854,286 @@ kbd {
   transform: translateX(16px);
   background: var(--accent);
   opacity: 1;
+}
+
+/* ---------- 顶栏聚合菜单 ---------- */
+.cluster-btn[aria-expanded="true"] {
+  background: var(--btn-bg-hover);
+  color: var(--accent);
+}
+
+.menu-pop {
+  position: absolute;
+  top: 56px;
+  right: 22px;
+  z-index: 36;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 224px;
+  padding: 8px;
+  border: 1px solid var(--glass-stroke);
+  border-radius: 16px;
+  background: var(--glass-fill);
+  box-shadow: 0 18px 40px rgba(15, 35, 60, 0.24);
+}
+
+.menu-pop[hidden] {
+  display: none;
+}
+
+.menu-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu-row:hover {
+  background: var(--btn-bg-hover);
+}
+
+.menu-row--static {
+  cursor: default;
+}
+
+.menu-row--static:hover {
+  background: transparent;
+}
+
+.menu-icon {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  opacity: 0.8;
+}
+
+.menu-label {
+  flex: 1;
+}
+
+.menu-value {
+  font-size: 11px;
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.menu-kbd {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--btn-bg);
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.seg {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--btn-bg);
+}
+
+.seg-btn {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.seg-btn.is-active {
+  background: var(--glass-fill);
+  color: var(--text-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* ---------- 外观 DIY ---------- */
+.appearance {
+  position: absolute;
+  inset: 22px;
+  z-index: 38;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 22px;
+  overflow-y: auto;
+  border: 1px solid var(--glass-stroke);
+  border-radius: 20px;
+  background: var(--glass-fill);
+  box-shadow: 0 24px 60px rgba(15, 35, 60, 0.28);
+}
+
+.appearance[hidden] {
+  display: none;
+}
+
+.appearance-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.appearance-title {
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  color: var(--text-primary);
+}
+
+.appearance-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.swatches {
+  display: flex;
+  gap: 8px;
+}
+
+.swatch {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.swatch:hover {
+  transform: scale(1.08);
+}
+
+.swatch.is-active {
+  border-color: var(--text-primary);
+}
+
+.accent-custom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.accent-custom input[type="color"] {
+  width: 34px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--glass-stroke);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.appearance-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.slider-name {
+  flex: none;
+  width: 32px;
+}
+
+.slider-row input[type="range"] {
+  flex: 1;
+  height: 4px;
+  border-radius: 99px;
+  background: rgba(22, 50, 79, 0.14);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.slider-row input[type="range"]::-webkit-slider-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--glass-fill);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+:root[data-theme="light"] {
+  --bg-veil: #eef4fb;
+}
+
+:root[data-theme="dark"] {
+  --bg-veil: #070d16;
+}
+
+:root[data-theme="dark"] .slider-row input[type="range"] {
+  background: rgba(94, 200, 255, 0.18);
+}
+
+.slider-value {
+  width: 46px;
+  text-align: right;
+  font-size: 11px;
+}
+
+.appearance-foot {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ---------- 背景图层 ---------- */
+.glass-card {
+  overflow: hidden;
+}
+
+.bg-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background-position: center;
+  background-size: cover;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+
+.bg-layer.is-on {
+  opacity: 0.92;
+}
+
+.bg-dim {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: var(--bg-veil, #08101c);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
 }
 
 /* ---------- 无障碍：减少动态效果 ---------- */

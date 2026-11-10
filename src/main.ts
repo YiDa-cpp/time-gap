@@ -1,4 +1,4 @@
-import { getCurrentWindow, currentMonitor, cursorPosition } from "@tauri-apps/api/window";
+﻿import { getCurrentWindow, currentMonitor, cursorPosition } from "@tauri-apps/api/window";
 import { LogicalSize, PhysicalPosition, PhysicalSize } from "@tauri-apps/api/dpi";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -9,12 +9,6 @@ import { invoke } from "@tauri-apps/api/core";
 type ThemeMode = "light" | "dark" | "system";
 
 const THEME_KEY = "timegap:theme-mode";
-const THEME_CYCLE: ThemeMode[] = ["light", "dark", "system"];
-const THEME_LABEL: Record<ThemeMode, string> = {
-  light: "浅色",
-  dark: "深色",
-  system: "跟随系统",
-};
 
 const prefersDark = window.matchMedia("(prefers-color-scheme: dark)");
 
@@ -43,11 +37,11 @@ function applyTheme(mode: ThemeMode): void {
   root.dataset.mode = mode;
   root.dataset.theme = effective;
 
-  const button = document.querySelector<HTMLButtonElement>("#theme-btn");
-  if (button) {
-    button.setAttribute("aria-label", `当前主题：${THEME_LABEL[mode]}，点击切换`);
-    button.title = `当前主题：${THEME_LABEL[mode]}（点击切换：浅色 → 深色 → 跟随系统）`;
-  }
+  document.querySelectorAll<HTMLButtonElement>("#theme-seg .seg-btn").forEach((button) => {
+    const active = button.dataset.themeMode === mode;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
 }
 
 function setupTheme(): void {
@@ -58,10 +52,14 @@ function setupTheme(): void {
     if (mode === "system") applyTheme(mode);
   });
 
-  document.querySelector<HTMLButtonElement>("#theme-btn")?.addEventListener("click", () => {
-    mode = THEME_CYCLE[(THEME_CYCLE.indexOf(mode) + 1) % THEME_CYCLE.length] ?? "light";
-    storeTheme(mode);
-    applyTheme(mode);
+  document.querySelectorAll<HTMLButtonElement>("#theme-seg .seg-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      const next = button.dataset.themeMode as ThemeMode | undefined;
+      if (!next) return;
+      mode = next;
+      storeTheme(mode);
+      applyTheme(mode);
+    });
   });
 }
 
@@ -758,19 +756,20 @@ function ensureAudio(): void {
 }
 
 function setupMute(): void {
-  const button = document.querySelector<HTMLButtonElement>("#mute-btn");
+  const toggle = document.querySelector<HTMLButtonElement>("#mute-toggle");
 
   const paint = (): void => {
     document.documentElement.dataset.muted = String(muted);
-    if (!button) return;
-    button.setAttribute("aria-pressed", String(muted));
-    button.setAttribute("aria-label", muted ? "取消静音" : "静音");
-    button.title = muted ? "提示音：关" : "提示音：开";
+    if (!toggle) return;
+    toggle.setAttribute("aria-checked", String(!muted));
+    toggle.classList.toggle("is-on", !muted);
+    toggle.setAttribute("aria-label", muted ? "提示音已关闭" : "提示音已开启");
   };
 
   paint();
 
-  button?.addEventListener("click", () => {
+  toggle?.addEventListener("click", (event) => {
+    event.stopPropagation();
     muted = !muted;
     try {
       localStorage.setItem(MUTE_KEY, muted ? "1" : "0");
@@ -1700,10 +1699,286 @@ function setupStats(): void {
 }
 
 /* ============================================================
-   设置：开机自启开关
+   顶栏聚合菜单：显示模式 / 偏好
    ============================================================ */
 
-const settingsPop = document.getElementById("settings-pop");
+const viewMenu = document.getElementById("view-menu");
+const prefsMenu = document.getElementById("prefs-menu");
+const appearancePanel = document.getElementById("appearance-panel");
+
+function closeMenus(): void {
+  if (viewMenu) viewMenu.hidden = true;
+  if (prefsMenu) prefsMenu.hidden = true;
+  document.querySelectorAll<HTMLElement>(".cluster-btn").forEach((button) => {
+    button.setAttribute("aria-expanded", "false");
+  });
+}
+
+function toggleMenu(buttonId: string, menu: HTMLElement | null): void {
+  if (!menu) return;
+  const willOpen = menu.hidden;
+  closeMenus();
+  menu.hidden = !willOpen;
+  document.getElementById(buttonId)?.setAttribute("aria-expanded", String(!menu.hidden));
+}
+
+function setupMenus(): void {
+  document.querySelector<HTMLButtonElement>("#view-btn")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleMenu("view-btn", viewMenu);
+  });
+
+  document.querySelector<HTMLButtonElement>("#prefs-btn")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleMenu("prefs-btn", prefsMenu);
+  });
+
+  ["#fullscreen-btn", "#compact-btn"].forEach((selector) => {
+    document.querySelector<HTMLButtonElement>(selector)?.addEventListener("click", () => {
+      window.setTimeout(closeMenus, 0);
+    });
+  });
+
+  document.addEventListener("click", (event) => {
+    const target = event.target as HTMLElement;
+    if (viewMenu?.contains(target) || prefsMenu?.contains(target)) return;
+    if (target.closest(".cluster-btn")) return;
+    if (target.closest("#appearance-panel")) return;
+    closeMenus();
+  });
+}
+
+/* ============================================================
+   外观 DIY：主题色 / 背景图 / 背景参数
+   ============================================================ */
+
+interface AppearanceState {
+  accent: string | null;
+  image: string | null;
+  blur: number;
+  dim: number;
+  scale: number;
+}
+
+const APPEARANCE_KEY = "timegap:appearance";
+const ACCENT_PRESETS = ["#4fa8e0", "#2fbf8f", "#f2b93d", "#a78bfa", "#f27a7a", "#7c9cff"];
+
+const DEFAULT_APPEARANCE: AppearanceState = {
+  accent: null,
+  image: null,
+  blur: 0,
+  dim: 65,
+  scale: 100,
+};
+
+function readAppearance(): AppearanceState {
+  try {
+    const raw = localStorage.getItem(APPEARANCE_KEY);
+    if (!raw) return { ...DEFAULT_APPEARANCE };
+
+    const parsed = JSON.parse(raw) as Partial<AppearanceState>;
+    return {
+      accent: typeof parsed.accent === "string" ? parsed.accent : null,
+      image: typeof parsed.image === "string" ? parsed.image : null,
+      blur: Number.isFinite(parsed.blur) ? Number(parsed.blur) : 0,
+      dim: Number.isFinite(parsed.dim) ? Number(parsed.dim) : 65,
+      scale: Number.isFinite(parsed.scale) ? Number(parsed.scale) : 100,
+    };
+  } catch {
+    return { ...DEFAULT_APPEARANCE };
+  }
+}
+
+let appearance = readAppearance();
+
+function hexToRgba(hex: string, alpha: number): string {
+  const value = hex.replace("#", "");
+  const full = value.length === 3 ? value.split("").map((char) => char + char).join("") : value;
+  const r = parseInt(full.slice(0, 2), 16);
+  const g = parseInt(full.slice(2, 4), 16);
+  const b = parseInt(full.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function accentStyleEl(): HTMLStyleElement {
+  let element = document.getElementById("accent-style") as HTMLStyleElement | null;
+  if (!element) {
+    element = document.createElement("style");
+    element.id = "accent-style";
+    document.head.appendChild(element);
+  }
+  return element;
+}
+
+function applyAppearance(): void {
+  const style = accentStyleEl();
+  style.textContent = appearance.accent
+    ? `:root { --accent: ${appearance.accent}; --accent-soft: ${hexToRgba(appearance.accent, 0.16)}; }`
+    : "";
+
+  const layer = document.getElementById("bg-layer");
+  const dim = document.getElementById("bg-dim");
+
+  if (layer) {
+    layer.style.backgroundImage = appearance.image ? `url("${appearance.image}")` : "";
+    layer.style.filter = appearance.image ? `blur(${appearance.blur}px)` : "none";
+    layer.style.transform = `scale(${appearance.image ? appearance.scale / 100 : 1})`;
+    layer.classList.toggle("is-on", Boolean(appearance.image));
+  }
+
+  if (dim) {
+    dim.style.opacity = appearance.image ? String(appearance.dim / 100) : "0";
+  }
+}
+
+function storeAppearance(): void {
+  try {
+    localStorage.setItem(APPEARANCE_KEY, JSON.stringify(appearance));
+  } catch (error) {
+    console.warn("外观设置写入失败（图片可能过大）", error);
+  }
+}
+
+async function fileToDataUrl(file: File): Promise<string> {
+  const bitmap = await createImageBitmap(file);
+  const max = 1600;
+  const ratio = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(bitmap.width * ratio));
+  canvas.height = Math.max(1, Math.round(bitmap.height * ratio));
+
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("无法创建画布");
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+
+  return canvas.toDataURL("image/jpeg", 0.82);
+}
+
+function paintAppearanceControls(): void {
+  document.querySelectorAll<HTMLButtonElement>("#accent-swatches .swatch").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.color === appearance.accent);
+  });
+
+  const accentInput = document.querySelector<HTMLInputElement>("#accent-input");
+  if (accentInput && appearance.accent) accentInput.value = appearance.accent;
+
+  const blur = document.querySelector<HTMLInputElement>("#bg-blur");
+  const dim = document.querySelector<HTMLInputElement>("#bg-dim");
+  const scale = document.querySelector<HTMLInputElement>("#bg-scale");
+
+  if (blur) blur.value = String(appearance.blur);
+  if (dim) dim.value = String(appearance.dim);
+  if (scale) scale.value = String(appearance.scale);
+
+  const blurVal = document.getElementById("bg-blur-val");
+  const dimVal = document.getElementById("bg-dim-val");
+  const scaleVal = document.getElementById("bg-scale-val");
+  if (blurVal) blurVal.textContent = `${appearance.blur}px`;
+  if (dimVal) dimVal.textContent = `${appearance.dim}%`;
+  if (scaleVal) scaleVal.textContent = `${appearance.scale}%`;
+}
+
+function setupAppearance(): void {
+  const swatchHost = document.getElementById("accent-swatches");
+  if (swatchHost) {
+    ACCENT_PRESETS.forEach((color) => {
+      const swatch = document.createElement("button");
+      swatch.type = "button";
+      swatch.className = "swatch";
+      swatch.dataset.color = color;
+      swatch.style.background = color;
+      swatch.setAttribute("aria-label", `主题色 ${color}`);
+      swatch.addEventListener("click", (event) => {
+        event.stopPropagation();
+        appearance.accent = color;
+        storeAppearance();
+        applyAppearance();
+        paintAppearanceControls();
+      });
+      swatchHost.appendChild(swatch);
+    });
+  }
+
+  document.querySelector<HTMLInputElement>("#accent-input")?.addEventListener("input", (event) => {
+    const target = event.target as HTMLInputElement;
+    appearance.accent = target.value;
+    storeAppearance();
+    applyAppearance();
+    paintAppearanceControls();
+  });
+
+  document.querySelector<HTMLInputElement>("#bg-file")?.addEventListener("change", async (event) => {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    try {
+      appearance.image = await fileToDataUrl(file);
+      appearance.blur = Math.max(appearance.blur, 2);
+      appearance.dim = Math.max(appearance.dim, 55);
+      storeAppearance();
+      applyAppearance();
+      paintAppearanceControls();
+    } catch (error) {
+      console.warn("读取图片失败", error);
+    }
+
+    input.value = "";
+  });
+
+  document.querySelector<HTMLButtonElement>("#bg-clear")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    appearance.image = null;
+    storeAppearance();
+    applyAppearance();
+  });
+
+  const bindSlider = (id: string, key: "blur" | "dim" | "scale", suffix: string): void => {
+    const slider = document.querySelector<HTMLInputElement>(`#${id}`);
+    const label = document.getElementById(`${id}-val`);
+    if (!slider) return;
+
+    slider.addEventListener("input", () => {
+      const value = Number(slider.value);
+      appearance = { ...appearance, [key]: value };
+      if (label) label.textContent = `${value}${suffix}`;
+      applyAppearance();
+    });
+    slider.addEventListener("change", () => storeAppearance());
+  };
+
+  bindSlider("bg-blur", "blur", "px");
+  bindSlider("bg-dim", "dim", "%");
+  bindSlider("bg-scale", "scale", "%");
+
+  document.querySelector<HTMLButtonElement>("#appearance-btn")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    closeMenus();
+    if (appearancePanel) appearancePanel.hidden = false;
+    paintAppearanceControls();
+  });
+
+  document.querySelector<HTMLButtonElement>("#appearance-close")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (appearancePanel) appearancePanel.hidden = true;
+  });
+
+  document.querySelector<HTMLButtonElement>("#appearance-reset")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    appearance = { ...DEFAULT_APPEARANCE };
+    storeAppearance();
+    applyAppearance();
+    paintAppearanceControls();
+  });
+
+  applyAppearance();
+  paintAppearanceControls();
+}
+
+/* ---------- 开机自启 ---------- */
+
 let autostartEnabled = false;
 
 function paintAutostart(): void {
@@ -1711,10 +1986,6 @@ function paintAutostart(): void {
   if (!toggle) return;
   toggle.setAttribute("aria-checked", String(autostartEnabled));
   toggle.classList.toggle("is-on", autostartEnabled);
-}
-
-function closeSettings(): void {
-  if (settingsPop) settingsPop.hidden = true;
 }
 
 async function setupSettings(): Promise<void> {
@@ -1726,21 +1997,6 @@ async function setupSettings(): Promise<void> {
     autostartEnabled = false;
   }
   paintAutostart();
-
-  document.querySelector<HTMLButtonElement>("#settings-btn")?.addEventListener("click", async (event) => {
-    event.stopPropagation();
-    if (!settingsPop) return;
-
-    settingsPop.hidden = !settingsPop.hidden;
-    if (!settingsPop.hidden) {
-      try {
-        autostartEnabled = await invoke<boolean>("is_autostart_enabled");
-      } catch {
-        // 忽略
-      }
-      paintAutostart();
-    }
-  });
 
   toggle?.addEventListener("click", async (event) => {
     event.stopPropagation();
@@ -1755,16 +2011,7 @@ async function setupSettings(): Promise<void> {
 
     paintAutostart();
   });
-
-  document.addEventListener("click", (event) => {
-    if (!settingsPop || settingsPop.hidden) return;
-    const target = event.target as Node;
-    if (settingsPop.contains(target)) return;
-    if (document.getElementById("settings-btn")?.contains(target)) return;
-    closeSettings();
-  });
 }
-
 /* ============================================================
    快捷键：Space 开始 / 暂停，Esc 退出全屏或还原胶囊
    ============================================================ */
@@ -1784,9 +2031,15 @@ function setupKeyboard(): void {
         return;
       }
 
-      if (settingsPop && !settingsPop.hidden) {
+      if (appearancePanel && !appearancePanel.hidden) {
         event.preventDefault();
-        closeSettings();
+        appearancePanel.hidden = true;
+        return;
+      }
+
+      if ((viewMenu && !viewMenu.hidden) || (prefsMenu && !prefsMenu.hidden)) {
+        event.preventDefault();
+        closeMenus();
         return;
       }
 
@@ -1896,6 +2149,8 @@ window.addEventListener("DOMContentLoaded", () => {
   setupTips();
   setupGoalPicker();
   setupStats();
+  setupMenus();
+  setupAppearance();
   void setupSettings();
   startWorldClock();
   renderStars();
