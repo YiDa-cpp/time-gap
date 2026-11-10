@@ -25,6 +25,7 @@
         "backgroundColor": "#F0F6FF",
         "alwaysOnTop": false,
         "center": true,
+        "visible": false,
         "devtools": true
       }
     ],

@@ -897,6 +897,7 @@ async function slideTo(targetX: number, targetY: number): Promise<void> {
 
 async function enterFullscreen(): Promise<void> {
   if (layout === "compact") await restoreFromCompact();
+  await persistGeometry();
   try {
     await appWindow().setFullscreen(true);
     applyLayout("fullscreen");
@@ -929,6 +930,9 @@ async function enterCompact(): Promise<void> {
   dockSide = null;
   dockRevealed = false;
   stopDockPolling();
+
+  // 进入胶囊前先把普通形态的坐标存下来，胶囊态不参与记忆
+  await persistGeometry();
 
   try {
     const position = await appWindow().outerPosition();
@@ -1132,9 +1136,33 @@ async function pollDockCursor(): Promise<void> {
   }
 }
 
+/* ---------- 窗口位置记忆（仅普通布局下保存） ---------- */
+
+let geometryTimer: number | null = null;
+
+async function persistGeometry(): Promise<void> {
+  if (layout !== "normal") return;
+  try {
+    await invoke("save_window_state");
+  } catch {
+    // 非 Tauri 环境或命令失败时静默忽略
+  }
+}
+
+function scheduleSaveGeometry(): void {
+  if (layout !== "normal") return;
+  if (geometryTimer !== null) window.clearTimeout(geometryTimer);
+  geometryTimer = window.setTimeout(() => {
+    geometryTimer = null;
+    void persistGeometry();
+  }, 600);
+}
+
 async function setupDockWatcher(): Promise<void> {
   try {
     await appWindow().onMoved(() => {
+      scheduleSaveGeometry();
+
       if (layout !== "compact") return;
       if (Date.now() < adjustingUntil) return;
 
@@ -1144,6 +1172,8 @@ async function setupDockWatcher(): Promise<void> {
         void evaluateDock();
       }, 280);
     });
+
+    await appWindow().onResized(() => scheduleSaveGeometry());
   } catch (error) {
     console.warn("监听窗口移动失败", error);
   }
@@ -1670,6 +1700,72 @@ function setupStats(): void {
 }
 
 /* ============================================================
+   设置：开机自启开关
+   ============================================================ */
+
+const settingsPop = document.getElementById("settings-pop");
+let autostartEnabled = false;
+
+function paintAutostart(): void {
+  const toggle = document.querySelector<HTMLButtonElement>("#autostart-toggle");
+  if (!toggle) return;
+  toggle.setAttribute("aria-checked", String(autostartEnabled));
+  toggle.classList.toggle("is-on", autostartEnabled);
+}
+
+function closeSettings(): void {
+  if (settingsPop) settingsPop.hidden = true;
+}
+
+async function setupSettings(): Promise<void> {
+  const toggle = document.querySelector<HTMLButtonElement>("#autostart-toggle");
+
+  try {
+    autostartEnabled = await invoke<boolean>("is_autostart_enabled");
+  } catch {
+    autostartEnabled = false;
+  }
+  paintAutostart();
+
+  document.querySelector<HTMLButtonElement>("#settings-btn")?.addEventListener("click", async (event) => {
+    event.stopPropagation();
+    if (!settingsPop) return;
+
+    settingsPop.hidden = !settingsPop.hidden;
+    if (!settingsPop.hidden) {
+      try {
+        autostartEnabled = await invoke<boolean>("is_autostart_enabled");
+      } catch {
+        // 忽略
+      }
+      paintAutostart();
+    }
+  });
+
+  toggle?.addEventListener("click", async (event) => {
+    event.stopPropagation();
+    const next = !autostartEnabled;
+
+    try {
+      await invoke("set_autostart", { enabled: next });
+      autostartEnabled = next;
+    } catch (error) {
+      console.warn("设置开机自启失败", error);
+    }
+
+    paintAutostart();
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!settingsPop || settingsPop.hidden) return;
+    const target = event.target as Node;
+    if (settingsPop.contains(target)) return;
+    if (document.getElementById("settings-btn")?.contains(target)) return;
+    closeSettings();
+  });
+}
+
+/* ============================================================
    快捷键：Space 开始 / 暂停，Esc 退出全屏或还原胶囊
    ============================================================ */
 
@@ -1685,6 +1781,12 @@ function setupKeyboard(): void {
       if (confirmDialog && !confirmDialog.hidden) {
         event.preventDefault();
         closeConfirm();
+        return;
+      }
+
+      if (settingsPop && !settingsPop.hidden) {
+        event.preventDefault();
+        closeSettings();
         return;
       }
 
@@ -1794,10 +1896,15 @@ window.addEventListener("DOMContentLoaded", () => {
   setupTips();
   setupGoalPicker();
   setupStats();
+  void setupSettings();
   startWorldClock();
   renderStars();
   renderCountdown();
 
   void applyPinned(false);
   void setupDockWatcher();
+
+  window.addEventListener("beforeunload", () => {
+    void persistGeometry();
+  });
 });

@@ -210,6 +210,25 @@
               </svg>
             </button>
 
+            <button
+              id="settings-btn"
+              class="icon-btn"
+              type="button"
+              aria-label="设置"
+              title="设置"
+            >
+              <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path
+                  d="M2.5 5h11M2.5 11h11"
+                  stroke="currentColor"
+                  stroke-width="1.4"
+                  stroke-linecap="round"
+                />
+                <circle cx="6" cy="5" r="1.9" fill="currentColor" />
+                <circle cx="10.2" cy="11" r="1.9" fill="currentColor" />
+              </svg>
+            </button>
+
             <button id="close-btn" class="icon-btn" type="button" aria-label="关闭窗口" title="关闭">
               <svg viewBox="0 0 12 12" fill="none" aria-hidden="true">
                 <path
@@ -394,6 +413,26 @@
             <p class="stats-hint" id="stats-hint"></p>
             <button id="stats-clear" class="stats-clear" type="button">清空数据</button>
           </div>
+        </div>
+
+        <div id="settings-pop" class="settings-pop" hidden>
+          <div class="settings-row">
+            <div class="settings-text">
+              <span class="settings-name">开机自启</span>
+              <span class="settings-desc">登录 Windows 后自动在托盘运行</span>
+            </div>
+            <button
+              id="autostart-toggle"
+              class="switch"
+              type="button"
+              role="switch"
+              aria-checked="false"
+              aria-label="开机自启"
+            >
+              <span class="switch-knob"></span>
+            </button>
+          </div>
+          <p class="settings-hint">关闭窗口不会退出，程序会留在系统托盘。</p>
         </div>
 
         <div id="confirm-dialog" class="confirm" hidden>
