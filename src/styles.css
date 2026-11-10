@@ -2133,6 +2133,29 @@ kbd {
   opacity: 1;
 }
 
+/* contain 模式下的模糊垫底：四周不会露出突兀空白 */
+.bg-blur {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background-position: center;
+  background-size: cover;
+  filter: blur(28px) saturate(1.15);
+  transform: scale(1.08);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+
+.bg-blur.is-on {
+  opacity: 0.9;
+}
+
+.fit-row[hidden] {
+  display: none;
+}
+
 .bg-dim {
   position: absolute;
   inset: 0;

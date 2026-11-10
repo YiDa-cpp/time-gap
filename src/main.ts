@@ -1807,7 +1807,8 @@ interface AppearanceState {
   scale: number;
   cardAlpha: number;
   folder: string | null;
-  fit: "cover" | "contain";
+  fit: "cover" | "contain" | "fill";
+  position: "top" | "center" | "bottom";
 }
 
 const APPEARANCE_KEY = "timegap:appearance";
@@ -1822,6 +1823,7 @@ const DEFAULT_APPEARANCE: AppearanceState = {
   cardAlpha: 100,
   folder: null,
   fit: "contain",
+  position: "center",
 };
 
 function readAppearance(): AppearanceState {
@@ -1838,7 +1840,9 @@ function readAppearance(): AppearanceState {
       scale: Number.isFinite(parsed.scale) ? Number(parsed.scale) : 100,
       cardAlpha: Number.isFinite(parsed.cardAlpha) ? Number(parsed.cardAlpha) : 100,
       folder: typeof parsed.folder === "string" ? parsed.folder : null,
-      fit: parsed.fit === "cover" ? "cover" : "contain",
+      fit: parsed.fit === "cover" || parsed.fit === "fill" ? parsed.fit : "contain",
+      position:
+        parsed.position === "top" || parsed.position === "bottom" ? parsed.position : "center",
     };
   } catch {
     return { ...DEFAULT_APPEARANCE };
@@ -1924,10 +1928,25 @@ function applyAppearance(): void {
 
   if (layer) {
     layer.style.backgroundImage = appearance.image ? `url("${appearance.image}")` : "";
-    layer.style.backgroundSize = appearance.fit === "contain" ? "contain" : "cover";
+    layer.style.backgroundSize =
+      appearance.fit === "contain" ? "contain" : appearance.fit === "fill" ? "100% 100%" : "cover";
+    layer.style.backgroundPosition =
+      appearance.position === "top"
+        ? "center top"
+        : appearance.position === "bottom"
+          ? "center bottom"
+          : "center center";
     layer.style.filter = appearance.image ? `blur(${appearance.blur}px)` : "none";
     layer.style.transform = `scale(${appearance.image ? appearance.scale / 100 : 1})`;
     layer.classList.toggle("is-on", Boolean(appearance.image));
+  }
+
+  const blurLayer = document.getElementById("bg-blur");
+  if (blurLayer) {
+    // contain 时用一张模糊放大的同图垫底，四周不会露出突兀的空白
+    const enabled = Boolean(appearance.image) && appearance.fit === "contain";
+    blurLayer.style.backgroundImage = enabled ? `url("${appearance.image}")` : "";
+    blurLayer.classList.toggle("is-on", enabled);
   }
 
   if (dim) {
@@ -1998,6 +2017,15 @@ function paintAppearanceControls(): void {
     button.classList.toggle("is-active", active);
     button.setAttribute("aria-pressed", String(active));
   });
+
+  document.querySelectorAll<HTMLButtonElement>("#bg-pos-seg .seg-btn").forEach((button) => {
+    const active = (button.dataset.pos ?? "center") === appearance.position;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+
+  const posRow = document.getElementById("bg-pos-row");
+  if (posRow) posRow.hidden = appearance.fit === "fill";
 }
 
 function setFolderHint(text: string): void {
@@ -2117,7 +2145,19 @@ function setupAppearance(): void {
   document.querySelectorAll<HTMLButtonElement>("#fit-seg .seg-btn").forEach((button) => {
     button.addEventListener("click", (event) => {
       event.stopPropagation();
-      appearance.fit = button.dataset.fit === "contain" ? "contain" : "cover";
+      const next = button.dataset.fit;
+      appearance.fit = next === "cover" || next === "fill" ? next : "contain";
+      storeAppearance();
+      applyAppearance();
+      paintAppearanceControls();
+    });
+  });
+
+  document.querySelectorAll<HTMLButtonElement>("#bg-pos-seg .seg-btn").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const next = button.dataset.pos;
+      appearance.position = next === "top" || next === "bottom" ? next : "center";
       storeAppearance();
       applyAppearance();
       paintAppearanceControls();

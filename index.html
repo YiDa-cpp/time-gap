@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html
   lang="zh-CN"
   data-mode="light"
@@ -54,6 +54,7 @@
   <body>
     <div class="app">
             <div class="glass-card">
+        <div class="bg-blur" id="bg-blur" aria-hidden="true"></div>
         <div class="bg-layer" id="bg-layer" aria-hidden="true"></div>
         <div class="bg-dim" id="bg-dim" aria-hidden="true"></div>
 
@@ -314,8 +315,17 @@
             <div class="fit-row">
               <span class="slider-name">填充</span>
               <div class="seg" id="fit-seg">
-                <button type="button" class="seg-btn" data-fit="contain">完整</button>
                 <button type="button" class="seg-btn" data-fit="cover">铺满</button>
+                <button type="button" class="seg-btn" data-fit="contain">完整</button>
+                <button type="button" class="seg-btn" data-fit="fill">拉伸</button>
+              </div>
+            </div>
+            <div class="fit-row" id="bg-pos-row">
+              <span class="slider-name">位置</span>
+              <div class="seg" id="bg-pos-seg">
+                <button type="button" class="seg-btn" data-pos="top">上</button>
+                <button type="button" class="seg-btn" data-pos="center">中</button>
+                <button type="button" class="seg-btn" data-pos="bottom">下</button>
               </div>
             </div>
             <label class="slider-row">
