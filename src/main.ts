@@ -1218,9 +1218,11 @@ function setupWindowDrag(): void {
     if (event.button !== 0) return;
     if (layout === "fullscreen") return;
 
+    // 按住 Alt 时不拖窗口：这时是在操作时钟
+    if (event.altKey) return;
+
     const target = event.target as HTMLElement | null;
 
-    // 普通布局下时钟自己处理拖拽；胶囊态里时钟也可以拖窗口
     if (layout !== "compact" && target?.closest(".clock")) return;
     if (target?.closest(NO_DRAG_SELECTOR)) return;
 
@@ -1808,7 +1810,8 @@ interface AppearanceState {
   cardAlpha: number;
   folder: string | null;
   fit: "cover" | "contain" | "fill";
-  position: "top" | "center" | "bottom";
+  offsetX: number;
+  offsetY: number;
 }
 
 const APPEARANCE_KEY = "timegap:appearance";
@@ -1823,7 +1826,8 @@ const DEFAULT_APPEARANCE: AppearanceState = {
   cardAlpha: 100,
   folder: null,
   fit: "contain",
-  position: "center",
+  offsetX: 0,
+  offsetY: 0,
 };
 
 function readAppearance(): AppearanceState {
@@ -1841,8 +1845,8 @@ function readAppearance(): AppearanceState {
       cardAlpha: Number.isFinite(parsed.cardAlpha) ? Number(parsed.cardAlpha) : 100,
       folder: typeof parsed.folder === "string" ? parsed.folder : null,
       fit: parsed.fit === "cover" || parsed.fit === "fill" ? parsed.fit : "contain",
-      position:
-        parsed.position === "top" || parsed.position === "bottom" ? parsed.position : "center",
+      offsetX: Number.isFinite(parsed.offsetX) ? Number(parsed.offsetX) : 0,
+      offsetY: Number.isFinite(parsed.offsetY) ? Number(parsed.offsetY) : 0,
     };
   } catch {
     return { ...DEFAULT_APPEARANCE };
@@ -1930,12 +1934,7 @@ function applyAppearance(): void {
     layer.style.backgroundImage = appearance.image ? `url("${appearance.image}")` : "";
     layer.style.backgroundSize =
       appearance.fit === "contain" ? "contain" : appearance.fit === "fill" ? "100% 100%" : "cover";
-    layer.style.backgroundPosition =
-      appearance.position === "top"
-        ? "center top"
-        : appearance.position === "bottom"
-          ? "center bottom"
-          : "center center";
+    layer.style.backgroundPosition = `calc(50% + ${appearance.offsetX}px) calc(50% + ${appearance.offsetY}px)`;
     layer.style.filter = appearance.image ? `blur(${appearance.blur}px)` : "none";
     layer.style.transform = `scale(${appearance.image ? appearance.scale / 100 : 1})`;
     layer.classList.toggle("is-on", Boolean(appearance.image));
@@ -2014,12 +2013,6 @@ function paintAppearanceControls(): void {
 
   document.querySelectorAll<HTMLButtonElement>("#fit-seg .seg-btn").forEach((button) => {
     const active = (button.dataset.fit ?? "cover") === appearance.fit;
-    button.classList.toggle("is-active", active);
-    button.setAttribute("aria-pressed", String(active));
-  });
-
-  document.querySelectorAll<HTMLButtonElement>("#bg-pos-seg .seg-btn").forEach((button) => {
-    const active = (button.dataset.pos ?? "center") === appearance.position;
     button.classList.toggle("is-active", active);
     button.setAttribute("aria-pressed", String(active));
   });
@@ -2153,14 +2146,27 @@ function setupAppearance(): void {
     });
   });
 
-  document.querySelectorAll<HTMLButtonElement>("#bg-pos-seg .seg-btn").forEach((button) => {
+  document.querySelectorAll<HTMLButtonElement>(".nudge [data-nudge]").forEach((button) => {
     button.addEventListener("click", (event) => {
       event.stopPropagation();
-      const next = button.dataset.pos;
-      appearance.position = next === "top" || next === "bottom" ? next : "center";
+      const step = 24;
+      const action = button.dataset.nudge;
+
+      if (action === "reset") {
+        appearance.offsetX = 0;
+        appearance.offsetY = 0;
+      } else if (action === "up") {
+        appearance.offsetY = Math.max(-600, appearance.offsetY - step);
+      } else if (action === "down") {
+        appearance.offsetY = Math.min(600, appearance.offsetY + step);
+      } else if (action === "left") {
+        appearance.offsetX = Math.max(-600, appearance.offsetX - step);
+      } else if (action === "right") {
+        appearance.offsetX = Math.min(600, appearance.offsetX + step);
+      }
+
       storeAppearance();
       applyAppearance();
-      paintAppearanceControls();
     });
   });
 
@@ -2305,7 +2311,8 @@ function setupClockLayout(): void {
   let originY = 0;
 
   clock.addEventListener("pointerdown", (event) => {
-    if (layout !== "normal" || event.button !== 0) return;
+    // 只有按住 Alt 才进入「移动时钟」模式，否则交给窗口拖拽
+    if (layout !== "normal" || event.button !== 0 || !event.altKey) return;
 
     dragging = true;
     startX = event.clientX;
@@ -2340,19 +2347,18 @@ function setupClockLayout(): void {
   clock.addEventListener("pointerup", finishDrag);
   clock.addEventListener("pointercancel", finishDrag);
 
-  // Tauri 的 data-tauri-drag-region 监听的是 mousedown：这里拦掉，
-  // 否则按住时钟会拖动整个窗口，而不是移动时钟
+  // 按住 Alt 拖动时钟时，阻止 Tauri 的原生拖拽 / 文本选择
   clock.addEventListener("mousedown", (event) => {
-    if (layout !== "normal") return;
+    if (layout !== "normal" || !event.altKey) return;
     event.preventDefault();
     event.stopPropagation();
   });
 
-  // 滚轮缩放：面板内滚动即缩放时钟
+  // Alt + 滚轮缩放时钟
   clock.addEventListener(
     "wheel",
     (event) => {
-      if (layout !== "normal") return;
+      if (layout !== "normal" || !event.altKey) return;
       event.preventDefault();
 
       const factor = event.deltaY > 0 ? 0.94 : 1.06;

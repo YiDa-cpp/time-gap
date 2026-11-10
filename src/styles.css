@@ -2328,7 +2328,7 @@ kbd {
 
 /* 悬停提示：告诉用户这里可以拖动 / 缩放 */
 .clock::after {
-  content: "按住拖动 · 滚轮缩放";
+  content: "按住 Alt 拖动 · 滚轮缩放";
   position: absolute;
   left: 50%;
   bottom: calc(var(--card-h) * -0.09);
@@ -2410,6 +2410,37 @@ kbd {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.nudge {
+  display: flex;
+  gap: 4px;
+}
+
+.nudge-btn,
+.nudge-reset {
+  min-width: 26px;
+  height: 24px;
+  padding: 0 7px;
+  border: 1px solid var(--glass-stroke);
+  border-radius: 7px;
+  background: var(--btn-bg);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.nudge-btn:hover,
+.nudge-reset:hover {
+  background: var(--btn-bg-hover);
+}
+
+.nudge-reset {
+  font-size: 11px;
+  color: var(--text-secondary);
 }
 
 .bg-layer {

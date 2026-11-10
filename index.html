@@ -321,11 +321,13 @@
               </div>
             </div>
             <div class="fit-row" id="bg-pos-row">
-              <span class="slider-name">位置</span>
-              <div class="seg" id="bg-pos-seg">
-                <button type="button" class="seg-btn" data-pos="top">上</button>
-                <button type="button" class="seg-btn" data-pos="center">中</button>
-                <button type="button" class="seg-btn" data-pos="bottom">下</button>
+              <span class="slider-name">微调</span>
+              <div class="nudge">
+                <button type="button" class="nudge-btn" data-nudge="up" aria-label="背景上移">↑</button>
+                <button type="button" class="nudge-btn" data-nudge="down" aria-label="背景下移">↓</button>
+                <button type="button" class="nudge-btn" data-nudge="left" aria-label="背景左移">←</button>
+                <button type="button" class="nudge-btn" data-nudge="right" aria-label="背景右移">→</button>
+                <button type="button" class="nudge-reset" data-nudge="reset" aria-label="背景居中">居中</button>
               </div>
             </div>
             <label class="slider-row">
@@ -422,7 +424,7 @@
             <button id="reset-btn" class="ghost-btn" type="button" disabled>结束</button>
           </div>
 
-          <p class="hint">按 <kbd>Space</kbd> 开始 / 暂停</p>
+          <p class="hint">按 <kbd>Space</kbd> 开始 / 暂停 · 按住 <kbd>Alt</kbd> 拖动 / 缩放时钟</p>
         </main>
 
         <div id="subject-menu" class="subject-menu" role="listbox" hidden></div>

@@ -1,6 +1,6 @@
 [package]
 name = "time-gap"
-version = "0.1.0"
+version = "1.0.0"
 description = "TimeGap - a minimalist study timer for focused learning"
 authors = ["you"]
 edition = "2024"
