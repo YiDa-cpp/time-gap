@@ -1,4 +1,4 @@
-﻿/* ==========================================================================
+/* ==========================================================================
    时隙 TimeGap · 实色玻璃板 + 翻页时钟
    ========================================================================== */
 
@@ -2303,6 +2303,36 @@ kbd {
   cursor: grabbing;
 }
 
+/* 悬停提示：告诉用户这里可以拖动 / 缩放 */
+.clock::after {
+  content: "按住拖动 · 滚轮缩放";
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--card-h) * -0.09);
+  z-index: 6;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--glass-fill) 78%, transparent);
+  color: var(--text-secondary);
+  font-family: "Segoe UI", Inter, system-ui, sans-serif;
+  font-size: calc(var(--card-h) * 0.045);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%);
+  transition: opacity 0.2s ease;
+}
+
+.clock:hover::after {
+  opacity: 0.9;
+}
+
+:root[data-layout="compact"] .clock::after,
+:root[data-layout="fullscreen"] .clock::after {
+  display: none;
+}
+
 :root[data-layout="fullscreen"] .clock,
 :root[data-layout="compact"] .clock {
   cursor: default;
@@ -2313,7 +2343,7 @@ kbd {
 }
 
 /* ---------- 悬浮「换一条建议」 ---------- */
-.tip-shuffle {
+.quick-action {
   position: absolute;
   right: 16px;
   bottom: 26px;
@@ -2337,18 +2367,18 @@ kbd {
   backdrop-filter: blur(8px);
 }
 
-.tip-shuffle:hover {
+.quick-action:hover {
   opacity: 1;
   transform: scale(1.06);
 }
 
-.tip-shuffle svg {
+.quick-action svg {
   width: 14px;
   height: 14px;
 }
 
-:root[data-layout="compact"] .tip-shuffle,
-:root[data-layout="fullscreen"] .tip-shuffle {
+:root[data-layout="compact"] .quick-action,
+:root[data-layout="fullscreen"] .quick-action {
   display: none;
 }
 

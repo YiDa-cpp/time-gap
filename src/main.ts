@@ -1,4 +1,4 @@
-import { getCurrentWindow, currentMonitor, cursorPosition } from "@tauri-apps/api/window";
+﻿import { getCurrentWindow, currentMonitor, cursorPosition } from "@tauri-apps/api/window";
 import { LogicalSize, PhysicalPosition, PhysicalSize } from "@tauri-apps/api/dpi";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -2082,6 +2082,18 @@ function setupAppearance(): void {
     closeMenus();
     if (appearancePanel) appearancePanel.hidden = false;
     paintAppearanceControls();
+  });
+
+  document.querySelector<HTMLButtonElement>("#wallpaper-next")?.addEventListener("click", async (event) => {
+    event.stopPropagation();
+
+    if (appearance.folder) {
+      await loadWallpaperFromFolder(appearance.folder);
+      return;
+    }
+
+    if (appearancePanel) appearancePanel.hidden = false;
+    setFolderHint("先选一个壁纸文件夹，之后这里可一键换图");
   });
 
   document.querySelector<HTMLButtonElement>("#folder-pick")?.addEventListener("click", async (event) => {
