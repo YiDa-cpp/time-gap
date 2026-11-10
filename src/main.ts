@@ -1417,6 +1417,32 @@ function dateKey(date: Date): string {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 }
 
+/** 连续专注天数：今天有记录从今天起算，否则从昨天起算，按本地日期逐天回溯 */
+function computeStreak(sessions: SessionRecord[]): number {
+  const activeDays = new Set<string>();
+
+  sessions.forEach((session) => {
+    const startedAt = new Date(session.start);
+    if (!Number.isNaN(startedAt.getTime())) activeDays.add(dateKey(startedAt));
+  });
+
+  if (activeDays.size === 0) return 0;
+
+  const cursor = new Date();
+  if (!activeDays.has(dateKey(cursor))) {
+    cursor.setDate(cursor.getDate() - 1);
+    if (!activeDays.has(dateKey(cursor))) return 0;
+  }
+
+  let streak = 0;
+  while (activeDays.has(dateKey(cursor))) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  return streak;
+}
+
 const statsPanel = document.getElementById("stats-panel");
 const statsChart = document.getElementById("stats-chart");
 const statsHint = document.getElementById("stats-hint");
@@ -1477,6 +1503,9 @@ function renderStats(sessions: SessionRecord[]): void {
   }
 
   if (longestEl) longestEl.textContent = String(Math.round(longestSeconds / 60));
+
+  const streakEl = document.getElementById("stat-streak");
+  if (streakEl) streakEl.textContent = String(computeStreak(sessions));
 
   if (statsChart) {
     statsChart.replaceChildren();
