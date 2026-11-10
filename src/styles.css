@@ -1446,6 +1446,7 @@ kbd {
   border-radius: 20px;
   background: var(--glass-fill);
   box-shadow: 0 24px 60px rgba(15, 35, 60, 0.28);
+  overflow-y: auto;
 }
 
 .stats-panel[hidden] {
@@ -1497,14 +1498,14 @@ kbd {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 12px 14px;
+  padding: 10px 12px;
   border-radius: 14px;
   background: var(--btn-bg);
 }
 
 .stat-value {
   font-family: "Oswald", "Segoe UI", Inter, sans-serif;
-  font-size: 30px;
+  font-size: 26px;
   font-weight: 500;
   line-height: 1;
   color: var(--text-primary);
@@ -1565,6 +1566,167 @@ kbd {
 
 :root[data-layout="compact"] .stats-panel {
   display: none;
+}
+
+/* ---------- 科目分布 / 清空确认 ---------- */
+.subject-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.section-title {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
+.subject-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 92px;
+  overflow-y: auto;
+}
+
+.subject-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.subject-name {
+  flex: none;
+  width: 96px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity: 0.85;
+}
+
+.subject-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 99px;
+  background: rgba(22, 50, 79, 0.08);
+  overflow: hidden;
+}
+
+:root[data-theme="dark"] .subject-track {
+  background: rgba(94, 200, 255, 0.12);
+}
+
+.subject-fill {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, rgba(79, 168, 224, 0.55), var(--accent));
+  transition: width 0.35s ease;
+}
+
+.subject-percent {
+  flex: none;
+  width: 38px;
+  text-align: right;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.subject-empty-line {
+  font-size: 12px;
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+.stats-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.stats-clear {
+  flex: none;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.stats-clear:hover {
+  color: #d9534f;
+  border-color: rgba(217, 83, 79, 0.4);
+  background: rgba(217, 83, 79, 0.08);
+}
+
+.confirm {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: rgba(10, 20, 35, 0.45);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.confirm[hidden] {
+  display: none;
+}
+
+.confirm-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(340px, 86%);
+  padding: 20px 22px;
+  border: 1px solid var(--glass-stroke);
+  border-radius: 18px;
+  background: var(--glass-fill);
+  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.35);
+}
+
+.confirm-title {
+  margin: 0;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  color: var(--text-primary);
+}
+
+.confirm-text {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.pill-btn.danger {
+  border-color: transparent;
+  background: linear-gradient(180deg, #e26060, #cf4747);
+  color: #ffffff;
+}
+
+.pill-btn.danger:hover {
+  background: linear-gradient(180deg, #e86b6b, #d94f4f);
 }
 
 /* ---------- 无障碍：减少动态效果 ---------- */

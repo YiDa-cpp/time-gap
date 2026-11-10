@@ -61,9 +61,25 @@ fn save_session(app: tauri::AppHandle, session: Session) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn clear_sessions(app: tauri::AppHandle) -> Result<(), String> {
+    let path = sessions_path(&app)?;
+
+    match fs::remove_file(&path) {
+        Ok(()) => Ok(()),
+        // 文件本来就不存在，视为已清空
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(format!("清空数据失败: {error}")),
+    }
+}
+
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![load_sessions, save_session])
+        .invoke_handler(tauri::generate_handler![
+            load_sessions,
+            save_session,
+            clear_sessions
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

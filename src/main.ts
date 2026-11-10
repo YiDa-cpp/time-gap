@@ -1,4 +1,4 @@
-﻿import { getCurrentWindow, currentMonitor, cursorPosition } from "@tauri-apps/api/window";
+import { getCurrentWindow, currentMonitor, cursorPosition } from "@tauri-apps/api/window";
 import { LogicalSize, PhysicalPosition, PhysicalSize } from "@tauri-apps/api/dpi";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -1425,6 +1425,9 @@ function renderStats(sessions: SessionRecord[]): void {
   const today = dateKey(new Date());
   let todaySeconds = 0;
   let todayCount = 0;
+  let totalSeconds = 0;
+  let longestSeconds = 0;
+  const subjectTotals = new Map<string, number>();
 
   const days: { key: string; label: string; seconds: number }[] = [];
   for (let offset = 6; offset >= 0; offset -= 1) {
@@ -1444,6 +1447,12 @@ function renderStats(sessions: SessionRecord[]): void {
     const key = dateKey(startedAt);
     const seconds = Math.max(0, Math.round(session.durationSec || 0));
 
+    totalSeconds += seconds;
+    longestSeconds = Math.max(longestSeconds, seconds);
+
+    const subject = (session.subject || "未分类").trim() || "未分类";
+    subjectTotals.set(subject, (subjectTotals.get(subject) ?? 0) + seconds);
+
     if (key === today) {
       todaySeconds += seconds;
       todayCount += 1;
@@ -1455,8 +1464,19 @@ function renderStats(sessions: SessionRecord[]): void {
 
   const minutesEl = document.getElementById("stat-today-min");
   const countEl = document.getElementById("stat-today-count");
+  const totalEl = document.getElementById("stat-total-hours");
+  const longestEl = document.getElementById("stat-longest");
+
   if (minutesEl) minutesEl.textContent = String(Math.round(todaySeconds / 60));
   if (countEl) countEl.textContent = String(todayCount);
+
+  if (totalEl) {
+    const hours = totalSeconds / 3600;
+    totalEl.textContent =
+      hours <= 0 ? "0" : hours < 10 ? hours.toFixed(1) : String(Math.round(hours));
+  }
+
+  if (longestEl) longestEl.textContent = String(Math.round(longestSeconds / 60));
 
   if (statsChart) {
     statsChart.replaceChildren();
@@ -1482,6 +1502,49 @@ function renderStats(sessions: SessionRecord[]): void {
     });
   }
 
+  const subjectListEl = document.getElementById("subject-list");
+  if (subjectListEl) {
+    subjectListEl.replaceChildren();
+
+    if (subjectTotals.size === 0) {
+      const empty = document.createElement("span");
+      empty.className = "subject-empty-line";
+      empty.textContent = "暂无数据";
+      subjectListEl.appendChild(empty);
+    } else {
+      const entries = [...subjectTotals.entries()]
+        .sort((left, right) => right[1] - left[1])
+        .slice(0, 5);
+      const visibleTotal = entries.reduce((sum, entry) => sum + entry[1], 0) || 1;
+
+      entries.forEach(([name, seconds]) => {
+        const percent = Math.max(1, Math.round((seconds / visibleTotal) * 100));
+
+        const row = document.createElement("div");
+        row.className = "subject-row";
+
+        const nameEl = document.createElement("span");
+        nameEl.className = "subject-name";
+        nameEl.textContent = name;
+        nameEl.title = name;
+
+        const track = document.createElement("span");
+        track.className = "subject-track";
+        const fill = document.createElement("span");
+        fill.className = "subject-fill";
+        fill.style.width = `${percent}%`;
+        track.appendChild(fill);
+
+        const percentEl = document.createElement("span");
+        percentEl.className = "subject-percent";
+        percentEl.textContent = `${percent}%`;
+
+        row.append(nameEl, track, percentEl);
+        subjectListEl.appendChild(row);
+      });
+    }
+  }
+
   if (statsHint) {
     statsHint.textContent =
       sessions.length === 0
@@ -1496,8 +1559,31 @@ async function openStats(): Promise<void> {
   statsPanel.hidden = false;
 }
 
+async function clearAllSessions(): Promise<void> {
+  try {
+    await invoke("clear_sessions");
+  } catch {
+    try {
+      localStorage.removeItem(SESSION_FALLBACK_KEY);
+    } catch {
+      // 忽略
+    }
+  }
+}
+
+const confirmDialog = document.getElementById("confirm-dialog");
+
+function openConfirm(): void {
+  if (confirmDialog) confirmDialog.hidden = false;
+}
+
+function closeConfirm(): void {
+  if (confirmDialog) confirmDialog.hidden = true;
+}
+
 function closeStats(): void {
   if (statsPanel) statsPanel.hidden = true;
+  closeConfirm();
 }
 
 function recordFocusSession(): void {
@@ -1527,6 +1613,25 @@ function setupStats(): void {
     closeStats();
   });
 
+  document.querySelector<HTMLButtonElement>("#stats-clear")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    openConfirm();
+  });
+
+  document.querySelector<HTMLButtonElement>("#confirm-cancel")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    closeConfirm();
+  });
+
+  document
+    .querySelector<HTMLButtonElement>("#confirm-ok")
+    ?.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      await clearAllSessions();
+      closeConfirm();
+      renderStats([]);
+    });
+
   document.addEventListener("click", (event) => {
     if (!statsPanel || statsPanel.hidden) return;
     const target = event.target as Node;
@@ -1545,6 +1650,12 @@ function setupKeyboard(): void {
       if (durationPop && !durationPop.hidden) {
         event.preventDefault();
         closeDurationPopover();
+        return;
+      }
+
+      if (confirmDialog && !confirmDialog.hidden) {
+        event.preventDefault();
+        closeConfirm();
         return;
       }
 

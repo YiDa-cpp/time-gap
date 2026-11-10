@@ -353,11 +353,38 @@
               <span id="stat-today-count" class="stat-value">0</span>
               <span class="stat-label">今日番茄</span>
             </div>
+            <div class="stat-card">
+              <span id="stat-total-hours" class="stat-value">0</span>
+              <span class="stat-label">累计专注（小时）</span>
+            </div>
+            <div class="stat-card">
+              <span id="stat-longest" class="stat-value">0</span>
+              <span class="stat-label">最长单次（分钟）</span>
+            </div>
           </div>
 
           <div class="chart" id="stats-chart" aria-label="最近 7 天专注趋势"></div>
 
-          <p class="stats-hint" id="stats-hint"></p>
+          <div class="subject-block">
+            <span class="section-title">科目分布</span>
+            <div class="subject-list" id="subject-list"></div>
+          </div>
+
+          <div class="stats-foot">
+            <p class="stats-hint" id="stats-hint"></p>
+            <button id="stats-clear" class="stats-clear" type="button">清空数据</button>
+          </div>
+        </div>
+
+        <div id="confirm-dialog" class="confirm" hidden>
+          <div class="confirm-box" role="alertdialog" aria-label="确认清空数据">
+            <p class="confirm-title">确定清空所有专注记录？</p>
+            <p class="confirm-text">将删除全部历史会话，统计面板会回到空白，此操作不可撤销。</p>
+            <div class="confirm-actions">
+              <button id="confirm-cancel" class="pill-btn ghost" type="button">取消</button>
+              <button id="confirm-ok" class="pill-btn danger" type="button">确认清空</button>
+            </div>
+          </div>
         </div>
 
         <div class="ripple-host" id="ripple" aria-hidden="true"></div>
