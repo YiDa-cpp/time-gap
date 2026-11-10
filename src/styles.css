@@ -1,4 +1,4 @@
-﻿/* ==========================================================================
+/* ==========================================================================
    时隙 TimeGap · 实色玻璃板 + 翻页时钟
    ========================================================================== */
 
@@ -2122,7 +2122,7 @@ kbd {
 }
 
 .bg-layer.is-on {
-  opacity: 0.92;
+  opacity: 1;
 }
 
 .bg-dim {
@@ -2241,6 +2241,43 @@ kbd {
 
 :root[data-layout="compact"] .glass-card:hover .expand-btn {
   opacity: 1;
+}
+
+/* ---------- 无遮罩时的文字自适应（按背景亮度切黑白） ---------- */
+:root[data-bg-tone="dark"] .brand-cn,
+:root[data-bg-tone="dark"] .brand-en,
+:root[data-bg-tone="dark"] .subject,
+:root[data-bg-tone="dark"] .hint,
+:root[data-bg-tone="dark"] .hint kbd,
+:root[data-bg-tone="dark"] .tip,
+:root[data-bg-tone="dark"] .status,
+:root[data-bg-tone="dark"] .countdown,
+:root[data-bg-tone="dark"] .tip-next,
+:root[data-bg-tone="dark"] .ghost-btn {
+  color: #ffffff;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.6);
+}
+
+:root[data-bg-tone="dark"] .subject::placeholder {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+:root[data-bg-tone="dark"] .star {
+  color: rgba(255, 255, 255, 0.28);
+}
+
+:root[data-bg-tone="light"] .brand-cn,
+:root[data-bg-tone="light"] .brand-en,
+:root[data-bg-tone="light"] .subject,
+:root[data-bg-tone="light"] .hint,
+:root[data-bg-tone="light"] .hint kbd,
+:root[data-bg-tone="light"] .tip,
+:root[data-bg-tone="light"] .status,
+:root[data-bg-tone="light"] .countdown,
+:root[data-bg-tone="light"] .tip-next,
+:root[data-bg-tone="light"] .ghost-btn {
+  color: #10233a;
+  text-shadow: 0 1px 10px rgba(255, 255, 255, 0.65);
 }
 
 /* ---------- 无障碍：减少动态效果 ---------- */

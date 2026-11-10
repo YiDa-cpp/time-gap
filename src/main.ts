@@ -1769,7 +1769,7 @@ const DEFAULT_APPEARANCE: AppearanceState = {
   accent: null,
   image: null,
   blur: 0,
-  dim: 65,
+  dim: 0,
   scale: 100,
   cardAlpha: 100,
   folder: null,
@@ -1785,7 +1785,7 @@ function readAppearance(): AppearanceState {
       accent: typeof parsed.accent === "string" ? parsed.accent : null,
       image: typeof parsed.image === "string" ? parsed.image : null,
       blur: Number.isFinite(parsed.blur) ? Number(parsed.blur) : 0,
-      dim: Number.isFinite(parsed.dim) ? Number(parsed.dim) : 65,
+      dim: Number.isFinite(parsed.dim) ? Number(parsed.dim) : 0,
       scale: Number.isFinite(parsed.scale) ? Number(parsed.scale) : 100,
       cardAlpha: Number.isFinite(parsed.cardAlpha) ? Number(parsed.cardAlpha) : 100,
       folder: typeof parsed.folder === "string" ? parsed.folder : null,
@@ -1816,12 +1816,53 @@ function accentStyleEl(): HTMLStyleElement {
   return element;
 }
 
+let lastToneImage: string | null = null;
+
+/** 按背景图平均亮度切换页面文字的黑白，避免去掉遮罩后看不清 */
+async function updateBgTone(): Promise<void> {
+  const root = document.documentElement;
+
+  if (!appearance.image) {
+    delete root.dataset.bgTone;
+    lastToneImage = null;
+    return;
+  }
+
+  if (lastToneImage === appearance.image) return;
+  lastToneImage = appearance.image;
+
+  try {
+    const image = new Image();
+    image.src = appearance.image;
+    await image.decode();
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 24;
+    canvas.height = 24;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) return;
+
+    context.drawImage(image, 0, 0, 24, 24);
+    const { data } = context.getImageData(0, 0, 24, 24);
+
+    let sum = 0;
+    for (let index = 0; index < data.length; index += 4) {
+      sum += 0.2126 * data[index] + 0.7152 * data[index + 1] + 0.0722 * data[index + 2];
+    }
+
+    const luminance = sum / (data.length / 4) / 255;
+    root.dataset.bgTone = luminance > 0.6 ? "light" : "dark";
+  } catch {
+    delete root.dataset.bgTone;
+  }
+}
+
 function applyAppearance(): void {
   const root = document.documentElement;
   const style = accentStyleEl();
 
   style.textContent = appearance.accent
-    ? `:root { --accent: ${appearance.accent}; --accent-soft: ${hexToRgba(appearance.accent, 0.16)}; }`
+    ? `:root[data-accent="on"]:not([data-phase="break"]) { --accent: ${appearance.accent}; --accent-soft: ${hexToRgba(appearance.accent, 0.16)}; }`
     : "";
 
   // 有主题色时，翻页钟切换为「深色玻璃牌 + 主题色数字」
@@ -1841,6 +1882,8 @@ function applyAppearance(): void {
   if (dim) {
     dim.style.opacity = appearance.image ? String(appearance.dim / 100) : "0";
   }
+
+  void updateBgTone();
 }
 
 function storeAppearance(): void {
@@ -1977,7 +2020,6 @@ function setupAppearance(): void {
     try {
       appearance.image = await fileToDataUrl(file);
       appearance.folder = null;
-      appearance.dim = Math.max(appearance.dim, 55);
       appearance.cardAlpha = Math.min(appearance.cardAlpha, 88);
       storeAppearance();
       applyAppearance();

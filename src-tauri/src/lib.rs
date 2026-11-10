@@ -1,4 +1,4 @@
-// 时隙 TimeGap · Rust 侧保持极薄：
+﻿// 时隙 TimeGap · Rust 侧保持极薄：
 // 窗口与托盘、会话落盘、开机自启，业务逻辑全部在前端。
 #![cfg_attr(mobile, tauri::mobile_entry_point)]
 
@@ -363,7 +363,8 @@ fn pick_wallpaper_folder() -> Result<Option<String>, String> {
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
-        let script = "Add-Type -AssemblyName System.Windows.Forms; \
+        let script = "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; \
+                      Add-Type -AssemblyName System.Windows.Forms; \
                       $dialog = New-Object System.Windows.Forms.FolderBrowserDialog; \
                       $dialog.Description = '选择壁纸文件夹'; \
                       if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { \
@@ -375,7 +376,20 @@ fn pick_wallpaper_folder() -> Result<Option<String>, String> {
             .output()
             .map_err(|error| format!("打开文件夹选择器失败: {error}"))?;
 
-        let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        // PowerShell 重定向输出可能是 UTF-8，也可能是 UTF-16LE（中文路径易踩）
+        let raw = output.stdout;
+        let text = match String::from_utf8(raw.clone()) {
+            Ok(value) => value,
+            Err(_) => {
+                let units: Vec<u16> = raw
+                    .chunks_exact(2)
+                    .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+                    .collect();
+                String::from_utf16_lossy(&units)
+            }
+        };
+
+        let path = text.trim().trim_matches('"').trim().to_string();
         Ok(if path.is_empty() { None } else { Some(path) })
     }
 
@@ -429,4 +443,28 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lists_chinese_wallpaper_folder() {
+        let dir = std::env::temp_dir().join("时隙壁纸测试");
+        let _ = fs::create_dir_all(&dir);
+
+        let png = dir.join("测试图片.png");
+        fs::write(&png, b"fake-png").expect("write png");
+        fs::write(dir.join("readme.txt"), b"x").expect("write txt");
+
+        let listed = list_wallpapers(dir.to_string_lossy().to_string()).expect("list");
+        assert!(
+            listed.iter().any(|item| item.ends_with("测试图片.png")),
+            "listed = {listed:?}"
+        );
+        assert_eq!(listed.len(), 1, "txt 不应被收录");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
 }
